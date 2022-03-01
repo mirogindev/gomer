@@ -1,9 +1,11 @@
 package models
 
 type Ticket struct {
-	ID     string
-	Title  string
-	Number int
+	ID         string
+	Title      string
+	Number     *int
+	Categories []*Category
+	Tag        *Tag
 }
 
 type TicketInsertInput struct {
