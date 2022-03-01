@@ -126,16 +126,22 @@ func (s *SchemaBuilder) getGqType(reflectedType reflect.Type, isRequired bool) g
 	if reflectedType.Kind() == reflect.Ptr {
 		return s.getGqType(reflectedType.Elem(), false)
 	} else if reflectedType.Kind() == reflect.Slice {
+		obj := graphql.NewList(s.getGqType(reflectedType.Elem(), false))
 		if isRequired {
-			return graphql.NewNonNull(graphql.NewList(s.getGqType(reflectedType.Elem(), false)))
+			return graphql.NewNonNull(obj)
 		}
-		return graphql.NewList(s.getGqType(reflectedType.Elem(), false))
+		return obj
+
 	} else if reflectedType.Kind() == reflect.Struct {
 		key := getKey(reflectedType)
 		if v, ok := s.builtObjects[key]; ok {
 			return v
 		}
-		return s.buildObject(reflectedType.Name(), reflectedType)
+
+		bo := s.buildObject(reflectedType.Name(), reflectedType)
+		s.builtObjects[key] = bo
+
+		return bo
 	}
 	v, ok := isScalar(reflectedType)
 	if ok {
