@@ -21,6 +21,7 @@ type mutation struct{}
 type SchemaBuilder struct {
 	objects      map[string]*Object
 	builtObjects map[string]graphql.Output
+	builtInputs  map[string]graphql.Input
 }
 
 func (s *SchemaBuilder) Query() *Object {
@@ -64,38 +65,6 @@ func (s *SchemaBuilder) checkObjects(name string) {
 	}
 }
 
-//func (s *SchemaBuilder) buildObjects() {
-//	s.builtObjects = make(map[string]graphql.Output)
-//
-//	for n, o := range s.objects {
-//		if n == Query || n == Mutation {
-//			continue
-//		}
-//
-//		if o.Type == nil {
-//			log.Panicf("Type for object %s is not set", o.Name)
-//		}
-//
-//		t := reflect.TypeOf(o.Type)
-//		s.builtObjects[n] = s.buildObject(n, t)
-//	}
-//
-//	//fields := graphql.Fields{}
-//	//if queryFields, ok := s.objects[Query]; ok {
-//	//	methods := queryFields.Methods
-//	//	for n, _ := range methods {
-//	//		fields[n] = &graphql.Field{
-//	//			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-//	//				return nil, nil
-//	//			},
-//	//		}
-//	//	}
-//	//}
-//	//
-//	//rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootQuery", Fields: fields})
-//
-//}
-
 func (s *SchemaBuilder) buildObject(name string, t reflect.Type) graphql.Output {
 	fields := graphql.Fields{}
 
@@ -111,9 +80,56 @@ func (s *SchemaBuilder) buildObject(name string, t reflect.Type) graphql.Output 
 	})
 }
 
+func (s *SchemaBuilder) buildInputObject(name string, t reflect.Type) graphql.Input {
+	fields := graphql.InputObjectConfigFieldMap{}
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		n, fo := s.buildInputField(f)
+		fields[n] = fo
+	}
+
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name:   name,
+		Fields: fields,
+	})
+}
+
+func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldConfigArgument {
+	fields := graphql.FieldConfigArgument{}
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		n, fo := s.buildArgumentConfig(f)
+		fields[n] = fo
+	}
+
+	return fields
+}
+
+func (s *SchemaBuilder) buildArgumentConfig(reflectedType reflect.StructField) (string, *graphql.ArgumentConfig) {
+	n := strcase.ToSnake(reflectedType.Name)
+	gqType := s.getGqInput(reflectedType.Type, true)
+
+	field := graphql.ArgumentConfig{
+		Type: gqType,
+	}
+	return n, &field
+}
+
+func (s *SchemaBuilder) buildInputField(reflectedType reflect.StructField) (string, *graphql.InputObjectFieldConfig) {
+	n := strcase.ToSnake(reflectedType.Name)
+	gqType := s.getGqInput(reflectedType.Type, true)
+
+	field := graphql.InputObjectFieldConfig{
+		Type: gqType,
+	}
+	return n, &field
+}
+
 func (s *SchemaBuilder) buildField(reflectedType reflect.StructField) (string, *graphql.Field) {
 	n := strcase.ToSnake(reflectedType.Name)
-	gqType := s.getGqType(reflectedType.Type, true)
+	gqType := s.getGqOutput(reflectedType.Type, true)
 
 	field := graphql.Field{
 		Name: n,
@@ -122,11 +138,50 @@ func (s *SchemaBuilder) buildField(reflectedType reflect.StructField) (string, *
 	return n, &field
 }
 
-func (s *SchemaBuilder) getGqType(reflectedType reflect.Type, isRequired bool) graphql.Output {
+func (s *SchemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) graphql.Input {
+	if s.builtInputs == nil {
+		s.builtInputs = make(map[string]graphql.Input)
+	}
+
 	if reflectedType.Kind() == reflect.Ptr {
-		return s.getGqType(reflectedType.Elem(), false)
+		return s.getGqInput(reflectedType.Elem(), false)
 	} else if reflectedType.Kind() == reflect.Slice {
-		obj := graphql.NewList(s.getGqType(reflectedType.Elem(), false))
+		obj := graphql.NewList(s.getGqInput(reflectedType.Elem(), false))
+		if isRequired {
+			return graphql.NewNonNull(obj)
+		}
+		return obj
+
+	} else if reflectedType.Kind() == reflect.Struct {
+		key := getKey(reflectedType)
+		if v, ok := s.builtInputs[key]; ok {
+			return v
+		}
+
+		bo := s.buildInputObject(reflectedType.Name(), reflectedType)
+		s.builtInputs[key] = bo
+
+		return bo
+	}
+	v, ok := isScalar(reflectedType)
+	if ok {
+		if isRequired {
+			return graphql.NewNonNull(v)
+		}
+		return v
+	}
+	return nil
+}
+
+func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool) graphql.Output {
+	if s.builtObjects == nil {
+		s.builtObjects = make(map[string]graphql.Output)
+	}
+
+	if reflectedType.Kind() == reflect.Ptr {
+		return s.getGqOutput(reflectedType.Elem(), false)
+	} else if reflectedType.Kind() == reflect.Slice {
+		obj := graphql.NewList(s.getGqOutput(reflectedType.Elem(), false))
 		if isRequired {
 			return graphql.NewNonNull(obj)
 		}
@@ -158,10 +213,11 @@ func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	if queryFields, ok := s.objects[Query]; ok {
 		methods := queryFields.Methods
 		for n, v := range methods {
-			rf := reflect.TypeOf(v.Fn).Out(0)
-			rt := s.getGqType(rf, true)
+			ro := s.getResolverOutput(v.Fn)
+			args := s.getResolverArgs(v.Fn)
 			fields[n] = &graphql.Field{
-				Type: rt,
+				Args: args,
+				Type: ro,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return nil, nil
 				},
@@ -172,6 +228,16 @@ func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootQuery", Fields: fields})
 
 	return rootQuery
+}
+
+func (s *SchemaBuilder) getResolverOutput(fn interface{}) graphql.Output {
+	rf := reflect.TypeOf(fn).Out(0)
+	return s.getGqOutput(rf, true)
+}
+
+func (s *SchemaBuilder) getResolverArgs(fn interface{}) graphql.FieldConfigArgument {
+	rf := reflect.TypeOf(fn).In(1)
+	return s.buildFieldConfigArgument(rf)
 }
 
 func (s *SchemaBuilder) Build() (graphql.Schema, error) {

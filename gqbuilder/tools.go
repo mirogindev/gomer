@@ -11,13 +11,16 @@ import (
 var scalarsMap = map[string]*graphql.Scalar{
 	"string":   graphql.String,
 	"int":      graphql.Int,
+	"int64":    graphql.Int,
 	"float":    graphql.Float,
+	"float64":  graphql.Float,
 	"datetime": graphql.DateTime,
 	"bool":     graphql.Boolean,
 }
 
 func isScalar(t reflect.Type) (*graphql.Scalar, bool) {
-	if v, ok := scalarsMap[t.Name()]; ok {
+	n := t.Name()
+	if v, ok := scalarsMap[n]; ok {
 		return v, true
 	}
 	return nil, false
@@ -38,6 +41,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 	queryObj := builder.Query()
 
 	queryObj.FieldFunc("ticket", func(ctx context.Context, args struct {
+		Filter *models.TicketFilterInput
 		Limit  *int64
 		Offset *int64
 	}) ([]*models.Ticket, error) {

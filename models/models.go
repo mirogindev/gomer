@@ -8,6 +8,11 @@ type Ticket struct {
 	Tag        *Tag
 }
 
+type TicketFilterInput struct {
+	Title  string
+	Number int
+}
+
 type TicketInsertInput struct {
 	Title  string
 	Number *int
