@@ -18,9 +18,14 @@ func Test1(t *testing.T) {
 	}
 
 	// Query
+	//query := `
+	//	{
+	//		ticket(limit: 15, offset: 10) { title }
+	//	}`
+
 	query := `
 		{
-			ticket { title }
+			ticket(limit: 15, offset: 10, filter:{ title:"ddd" } ) { title }
 		}
 	`
 	params := graphql.Params{Schema: schema, RequestString: query}
@@ -29,6 +34,6 @@ func Test1(t *testing.T) {
 		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
 	}
 	rJSON, _ := json.Marshal(r)
-	fmt.Printf("%s \n", rJSON) // {"data":{"hello":"world"}}
+	fmt.Printf("%s \n", rJSON)
 
 }

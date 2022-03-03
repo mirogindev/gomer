@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/graphql-go/graphql"
+	"github.com/iancoleman/strcase"
 	"gogql/models"
 	"reflect"
 )
@@ -33,6 +34,12 @@ func getKey(t reflect.Type) string {
 	return fmt.Sprintf("%s/%s", pkg(), nk)
 }
 
+type Args struct {
+	Filter *models.TicketFilterInput
+	Limit  int
+	Offset *int
+}
+
 func BuildTestSchema() (graphql.Schema, error) {
 	builder := SchemaBuilder{}
 
@@ -40,11 +47,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	queryObj := builder.Query()
 
-	queryObj.FieldFunc("ticket", func(ctx context.Context, args struct {
-		Filter *models.TicketFilterInput
-		Limit  *int64
-		Offset *int64
-	}) ([]*models.Ticket, error) {
+	queryObj.FieldFunc("ticket", func(ctx context.Context, args Args) ([]*models.Ticket, error) {
 		var tickets []*models.Ticket
 		tickets = append(tickets, &models.Ticket{Title: "Ticket1", ID: "1"})
 		tickets = append(tickets, &models.Ticket{Title: "Ticket2", ID: "2"})
@@ -54,4 +57,8 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	schema, err := builder.Build()
 	return schema, err
+}
+
+func getFieldName(name string) string {
+	return strcase.ToSnake(name)
 }
