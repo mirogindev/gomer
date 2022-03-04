@@ -1,7 +1,6 @@
 package gqbuilder
 
 import (
-	"context"
 	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/iancoleman/strcase"
@@ -40,25 +39,23 @@ type Args struct {
 	Offset *int
 }
 
-func BuildTestSchema() (graphql.Schema, error) {
-	builder := SchemaBuilder{}
-
-	//ticket := builder.Object("Ticket", models.Ticket{})
-
-	queryObj := builder.Query()
-
-	queryObj.FieldFunc("ticket", func(ctx context.Context, args Args) ([]*models.Ticket, error) {
-		var tickets []*models.Ticket
-		tickets = append(tickets, &models.Ticket{Title: "Ticket1", ID: "1"})
-		tickets = append(tickets, &models.Ticket{Title: "Ticket2", ID: "2"})
-		tickets = append(tickets, &models.Ticket{Title: "Ticket3", ID: "3"})
-		return tickets, nil
-	})
-
-	schema, err := builder.Build()
-	return schema, err
-}
-
 func getFieldName(name string) string {
 	return strcase.ToSnake(name)
+}
+
+func mergeFields(methodFields, objectFields graphql.Fields) graphql.Fields {
+	for k, v := range methodFields {
+		objectFields[k] = v
+	}
+	return objectFields
+}
+
+func getArgs(fun reflect.Type) (reflect.Type, int) {
+	if fun.NumIn() == 3 {
+		pos := 2
+		return fun.In(pos), pos
+	} else {
+		pos := 1
+		return fun.In(pos), pos
+	}
 }

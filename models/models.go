@@ -5,7 +5,7 @@ type Ticket struct {
 	Title      string
 	Number     int
 	Categories []*Category
-	Tag        *Tag
+	Tags       []*Tag
 }
 
 type TicketFilterInput struct {
@@ -14,6 +14,16 @@ type TicketFilterInput struct {
 }
 
 type TicketOrderInput struct {
+	Title  *string
+	Number string
+}
+
+type TagFilterInput struct {
+	Title  string
+	Number *int
+}
+
+type TagOrderInput struct {
 	Title  *string
 	Number string
 }
