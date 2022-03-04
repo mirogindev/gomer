@@ -237,7 +237,18 @@ func (s *schemaBuilder) buildQuery() *graphql.Object {
 
 		return rootQuery
 	}
-	log.Panicf("Query object is not found")
+	log.Fatalln("Query object is not found")
+	return nil
+}
+
+func (s *schemaBuilder) buildMutation() *graphql.Object {
+	if qf, ok := s.objects[Mutation]; ok {
+		fields := s.buildMethods(qf.Methods)
+		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootMutation", Fields: fields})
+
+		return rootQuery
+	}
+	log.Fatalln("Mutation object is not found")
 	return nil
 }
 
@@ -434,9 +445,10 @@ func (s *schemaBuilder) getFunc(fn interface{}) reflect.Value {
 
 func (s *schemaBuilder) Build() (graphql.Schema, error) {
 	s.buildObjects()
+	mutation := s.buildMutation()
 	query := s.buildQuery()
 
-	schemaConfig := graphql.SchemaConfig{Query: query}
+	schemaConfig := graphql.SchemaConfig{Query: query, Mutation: mutation}
 	schema, err := graphql.NewSchema(schemaConfig)
 	return schema, err
 }

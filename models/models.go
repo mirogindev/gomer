@@ -8,8 +8,14 @@ type Ticket struct {
 	Tags       []*Tag
 }
 
+type StringFilter struct {
+	Neq  *string `json:"neq" mapstructure:"eq" op:"<>"`
+	Eq   *string `json:"eq" mapstructure:"eq" op:"="`
+	Like *string `json:"like" mapstructure:"like" op:"like"`
+}
+
 type TicketFilterInput struct {
-	Title  string
+	Title  *StringFilter `json:"name" mapstructure:"name"`
 	Number *int
 }
 
