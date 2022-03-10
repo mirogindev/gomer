@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/iancoleman/strcase"
-	"gomer/models"
+	"github.com/mirogindev/gomer/models"
 	"reflect"
 )
 

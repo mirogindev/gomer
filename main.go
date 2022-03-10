@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
+	"github.com/mirogindev/gomer/gqbuilder"
+	"github.com/mirogindev/gomer/models"
 	log "github.com/sirupsen/logrus"
-	"gomer/gqbuilder"
-	"gomer/models"
 	"net/http"
 	"time"
 )

@@ -1,9 +1,9 @@
 package tests
 
 import (
+	"github.com/mirogindev/gomer/gqbuilder"
+	"github.com/mirogindev/gomer/models"
 	"github.com/stretchr/testify/assert"
-	"gomer/gqbuilder"
-	"gomer/models"
 	"reflect"
 	"testing"
 )

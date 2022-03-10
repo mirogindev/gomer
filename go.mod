@@ -1,4 +1,4 @@
-module gomer
+module github.com/mirogindev/gomer
 
 go 1.16
 
