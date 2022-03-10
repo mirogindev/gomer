@@ -10,7 +10,6 @@ import (
 const (
 	Query    = "Query"
 	Mutation = "Mutation"
-	//SubscriptionObject = "SubscriptionObject"
 )
 
 type HandlerFn func(ctx context.Context, args interface{}) (interface{}, error)
@@ -18,18 +17,18 @@ type HandlerFn func(ctx context.Context, args interface{}) (interface{}, error)
 type query struct{}
 type mutation struct{}
 
-type schemaBuilder struct {
+type SchemaBuilder struct {
 	subscriptions *SubscriptionObject
 	objects       map[string]*Object
 	builtObjects  map[string]graphql.Output
 	builtInputs   map[string]graphql.Input
 }
 
-func GetBuilder() *schemaBuilder {
-	return &schemaBuilder{}
+func GetBuilder() *SchemaBuilder {
+	return &SchemaBuilder{}
 }
 
-func (s *schemaBuilder) Query() *Object {
+func (s *SchemaBuilder) Query() *Object {
 	name := Query
 	s.checkObjects(name)
 
@@ -40,7 +39,7 @@ func (s *schemaBuilder) Query() *Object {
 	return s.objects[name]
 }
 
-func (s *schemaBuilder) Mutation() *Object {
+func (s *SchemaBuilder) Mutation() *Object {
 	name := Mutation
 	s.checkObjects(name)
 
@@ -51,7 +50,7 @@ func (s *schemaBuilder) Mutation() *Object {
 	return s.objects[name]
 }
 
-func (s *schemaBuilder) Subscription() *SubscriptionObject {
+func (s *SchemaBuilder) Subscription() *SubscriptionObject {
 
 	if s.subscriptions != nil {
 		log.Fatalf("Subcscription object already exist")
@@ -63,7 +62,7 @@ func (s *schemaBuilder) Subscription() *SubscriptionObject {
 	return s.subscriptions
 }
 
-func (s *schemaBuilder) Object(name string, obj interface{}) *Object {
+func (s *SchemaBuilder) Object(name string, obj interface{}) *Object {
 	s.checkObjects(name)
 
 	s.objects[name] = &Object{
@@ -73,7 +72,7 @@ func (s *schemaBuilder) Object(name string, obj interface{}) *Object {
 	return s.objects[name]
 }
 
-func (s *schemaBuilder) checkObjects(name string) {
+func (s *SchemaBuilder) checkObjects(name string) {
 	if s.objects == nil {
 		s.objects = make(map[string]*Object)
 	}
@@ -82,7 +81,7 @@ func (s *schemaBuilder) checkObjects(name string) {
 	}
 }
 
-func (s *schemaBuilder) checkSubscriptions(name string) {
+func (s *SchemaBuilder) checkSubscriptions(name string) {
 	if s.subscriptions == nil {
 		s.subscriptions = &SubscriptionObject{}
 	}
@@ -91,7 +90,7 @@ func (s *schemaBuilder) checkSubscriptions(name string) {
 	}
 }
 
-func (s *schemaBuilder) buildObjectFields(t reflect.Type) graphql.Fields {
+func (s *SchemaBuilder) buildObjectFields(t reflect.Type) graphql.Fields {
 	fields := graphql.Fields{}
 
 	for i := 0; i < t.NumField(); i++ {
@@ -103,7 +102,7 @@ func (s *schemaBuilder) buildObjectFields(t reflect.Type) graphql.Fields {
 	return fields
 }
 
-func (s *schemaBuilder) buildObject(name string, t reflect.Type) graphql.Output {
+func (s *SchemaBuilder) buildObject(name string, t reflect.Type) graphql.Output {
 	fields := s.buildObjectFields(t)
 
 	return graphql.NewObject(graphql.ObjectConfig{
@@ -112,7 +111,7 @@ func (s *schemaBuilder) buildObject(name string, t reflect.Type) graphql.Output 
 	})
 }
 
-func (s *schemaBuilder) buildInputObject(name string, t reflect.Type) graphql.Input {
+func (s *SchemaBuilder) buildInputObject(name string, t reflect.Type) graphql.Input {
 	fields := graphql.InputObjectConfigFieldMap{}
 
 	for i := 0; i < t.NumField(); i++ {
@@ -127,7 +126,7 @@ func (s *schemaBuilder) buildInputObject(name string, t reflect.Type) graphql.In
 	})
 }
 
-func (s *schemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldConfigArgument {
+func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldConfigArgument {
 	fields := graphql.FieldConfigArgument{}
 
 	for i := 0; i < t.NumField(); i++ {
@@ -139,7 +138,7 @@ func (s *schemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldCo
 	return fields
 }
 
-func (s *schemaBuilder) buildArgumentConfig(reflectedType reflect.StructField) (string, *graphql.ArgumentConfig) {
+func (s *SchemaBuilder) buildArgumentConfig(reflectedType reflect.StructField) (string, *graphql.ArgumentConfig) {
 	n := getFieldName(reflectedType.Name)
 	gqType := s.getGqInput(reflectedType.Type, true)
 
@@ -149,7 +148,7 @@ func (s *schemaBuilder) buildArgumentConfig(reflectedType reflect.StructField) (
 	return n, &field
 }
 
-func (s *schemaBuilder) buildInputField(reflectedType reflect.StructField) (string, *graphql.InputObjectFieldConfig) {
+func (s *SchemaBuilder) buildInputField(reflectedType reflect.StructField) (string, *graphql.InputObjectFieldConfig) {
 	n := getFieldName(reflectedType.Name)
 	gqType := s.getGqInput(reflectedType.Type, true)
 
@@ -159,7 +158,7 @@ func (s *schemaBuilder) buildInputField(reflectedType reflect.StructField) (stri
 	return n, &field
 }
 
-func (s *schemaBuilder) buildField(reflectedType reflect.StructField) (string, *graphql.Field) {
+func (s *SchemaBuilder) buildField(reflectedType reflect.StructField) (string, *graphql.Field) {
 	n := getFieldName(reflectedType.Name)
 	gqType := s.getGqOutput(reflectedType.Type, true)
 
@@ -170,7 +169,7 @@ func (s *schemaBuilder) buildField(reflectedType reflect.StructField) (string, *
 	return n, &field
 }
 
-func (s *schemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) graphql.Input {
+func (s *SchemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) graphql.Input {
 	if s.builtInputs == nil {
 		s.builtInputs = make(map[string]graphql.Input)
 	}
@@ -205,7 +204,7 @@ func (s *schemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) 
 	return nil
 }
 
-func (s *schemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool) graphql.Output {
+func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool) graphql.Output {
 	if s.builtObjects == nil {
 		s.builtObjects = make(map[string]graphql.Output)
 	}
@@ -243,7 +242,7 @@ func (s *schemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool)
 	return nil
 }
 
-func (s *schemaBuilder) buildObjects() error {
+func (s *SchemaBuilder) buildObjects() error {
 	for n, v := range s.objects {
 		t := reflect.TypeOf(v.Type)
 		methodFields := s.buildMethods(v.Methods)
@@ -256,7 +255,7 @@ func (s *schemaBuilder) buildObjects() error {
 	return nil
 }
 
-func (s *schemaBuilder) buildQuery() *graphql.Object {
+func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	if qf, ok := s.objects[Query]; ok {
 		fields := s.buildMethods(qf.Methods)
 		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootQuery", Fields: fields})
@@ -267,7 +266,7 @@ func (s *schemaBuilder) buildQuery() *graphql.Object {
 	return nil
 }
 
-func (s *schemaBuilder) buildMutation() *graphql.Object {
+func (s *SchemaBuilder) buildMutation() *graphql.Object {
 	if qf, ok := s.objects[Mutation]; ok {
 		fields := s.buildMethods(qf.Methods)
 		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootMutation", Fields: fields})
@@ -278,7 +277,7 @@ func (s *schemaBuilder) buildMutation() *graphql.Object {
 	return nil
 }
 
-func (s *schemaBuilder) buildSubscription() *graphql.Object {
+func (s *SchemaBuilder) buildSubscription() *graphql.Object {
 	if s.subscriptions == nil {
 		log.Error("Subscription object is not found")
 		return nil
@@ -290,7 +289,7 @@ func (s *schemaBuilder) buildSubscription() *graphql.Object {
 	return rootQuery
 }
 
-func (s *schemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields {
+func (s *SchemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields {
 	fields := graphql.Fields{}
 	for n, v := range methods {
 		ro := s.getResolverOutput(v.Fn)
@@ -337,7 +336,7 @@ func (s *schemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields 
 	return fields
 }
 
-func (s *schemaBuilder) buildSubscriptionMethods(methods map[string]*SubscriptionMethod) graphql.Fields {
+func (s *SchemaBuilder) buildSubscriptionMethods(methods map[string]*SubscriptionMethod) graphql.Fields {
 	fields := graphql.Fields{}
 	for n, v := range methods {
 		ro := s.getGqOutput(reflect.TypeOf(v.Output), true)
@@ -459,22 +458,22 @@ func reflectField(name string, f reflect.Type, params map[string]interface{}) re
 	return reflect.ValueOf(val)
 }
 
-func (s *schemaBuilder) getResolverOutput(fn interface{}) graphql.Output {
+func (s *SchemaBuilder) getResolverOutput(fn interface{}) graphql.Output {
 	rf := reflect.TypeOf(fn).Out(0)
 	return s.getGqOutput(rf, true)
 }
 
-func (s *schemaBuilder) getResolverArgs(fn interface{}) graphql.FieldConfigArgument {
+func (s *SchemaBuilder) getResolverArgs(fn interface{}) graphql.FieldConfigArgument {
 	args, _ := getArgs(reflect.TypeOf(fn))
 	return s.buildFieldConfigArgument(args)
 }
 
-func (s *schemaBuilder) getFunc(fn interface{}) reflect.Value {
+func (s *SchemaBuilder) getFunc(fn interface{}) reflect.Value {
 	rf := reflect.ValueOf(fn)
 	return rf
 }
 
-func (s *schemaBuilder) Build() (graphql.Schema, error) {
+func (s *SchemaBuilder) Build() (graphql.Schema, error) {
 	s.buildObjects()
 
 	mutation := s.buildMutation()
