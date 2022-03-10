@@ -378,8 +378,6 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 	val := reflect.New(t).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		test := f.Name
-		log.Println(test)
 		if f.Type.Kind() == reflect.Ptr {
 			if f.Type.Elem().Kind() == reflect.Struct {
 				fName := getFieldName(f.Name)
@@ -463,8 +461,6 @@ func reflectField(name string, f reflect.Type, params map[string]interface{}) re
 
 func (s *schemaBuilder) getResolverOutput(fn interface{}) graphql.Output {
 	rf := reflect.TypeOf(fn).Out(0)
-	t := rf.Elem().Name()
-	log.Println(t)
 	return s.getGqOutput(rf, true)
 }
 
@@ -487,6 +483,13 @@ func (s *schemaBuilder) Build() (graphql.Schema, error) {
 
 	schemaConfig := graphql.SchemaConfig{Subscription: subscription, Query: query, Mutation: mutation}
 	schema, err := graphql.NewSchema(schemaConfig)
+
+	if err != nil {
+		log.Error("Error build Gomer schema")
+		return schema, err
+	}
+	log.Infoln("Gomer schema build successfully")
+
 	return schema, err
 }
 

@@ -24,7 +24,7 @@ func GetSubscriptionHandler(schema graphql.Schema) *SubscriptionHandler {
 func (sh *SubscriptionHandler) SubscriptionsHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("failed to do websocket upgrade: %v", err)
+		log.Error("failed to do websocket upgrade: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -33,13 +33,13 @@ func (sh *SubscriptionHandler) SubscriptionsHandlerFunc(w http.ResponseWriter, r
 		"type": "connection_ack",
 	})
 	if err != nil {
-		log.Printf("failed to marshal ws connection ack: %v", err)
+		log.Error("failed to marshal ws connection ack: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, connectionACK); err != nil {
-		log.Printf("failed to write to ws connection: %v", err)
+		log.Error("failed to write to ws connection: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -69,7 +69,7 @@ func (sh *SubscriptionHandler) handleSubscription(conn *websocket.Conn) {
 	subscriptionCtx, subscriptionCancelFn := context.WithCancel(context.Background())
 
 	handleClosedConnection := func() {
-		log.Println("[SubscriptionsHandler] subscriber closed connection")
+		log.Debug("[SubscriptionsHandler] subscriber closed connection")
 		sh.unsubscribe(subscriptionCancelFn, subscriber)
 		return
 	}
@@ -77,13 +77,13 @@ func (sh *SubscriptionHandler) handleSubscription(conn *websocket.Conn) {
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("failed to read websocket message: %v", err)
+			log.Error("failed to read websocket message: %v", err)
 			return
 		}
 
 		var msg ConnectionACKMessage
 		if err := json.Unmarshal(p, &msg); err != nil {
-			log.Printf("failed to unmarshal websocket message: %v", err)
+			log.Error("failed to unmarshal websocket message: %v", err)
 			continue
 		}
 
@@ -122,7 +122,7 @@ func (sh *SubscriptionHandler) unsubscribe(subscriptionCancelFn context.CancelFu
 		subscriber.Conn.Close()
 		subscribers.Delete(subscriber.UUID)
 	}
-	log.Printf("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
+	log.Debug("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
 }
 
 func (sh *SubscriptionHandler) subscribe(ctx context.Context, subscriptionCancelFn context.CancelFunc, conn *websocket.Conn, msg ConnectionACKMessage) *Subscriber {
@@ -134,7 +134,7 @@ func (sh *SubscriptionHandler) subscribe(ctx context.Context, subscriptionCancel
 	}
 	subscribers.Store(subscriber.UUID, &subscriber)
 
-	log.Printf("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
+	log.Debug("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
 
 	sendMessage := func(r *graphql.Result) error {
 		message, err := json.Marshal(map[string]interface{}{
