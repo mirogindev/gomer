@@ -378,6 +378,8 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 	val := reflect.New(t).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		test := f.Name
+		log.Println(test)
 		if f.Type.Kind() == reflect.Ptr {
 			if f.Type.Elem().Kind() == reflect.Struct {
 				fName := getFieldName(f.Name)

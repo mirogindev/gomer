@@ -2,8 +2,8 @@ package tests
 
 import (
 	"github.com/stretchr/testify/assert"
-	"gogql/gqbuilder"
-	"gogql/models"
+	"gomer/gqbuilder"
+	"gomer/models"
 	"reflect"
 	"testing"
 )
@@ -63,11 +63,16 @@ func TestFieldReflectionWithNestedStruct(t *testing.T) {
 func TestFieldReflectionWithNestedPointerStruct(t *testing.T) {
 	params := make(map[string]interface{})
 	filter := make(map[string]interface{})
+	titleFilter := make(map[string]interface{})
+	numberFilter := make(map[string]interface{})
 	title := "testTitle"
 	number := 20
 
-	filter["title"] = title
-	filter["number"] = number
+	titleFilter["eq"] = title
+	numberFilter["eq"] = number
+
+	filter["title"] = titleFilter
+	filter["number"] = numberFilter
 
 	params["filter"] = filter
 
@@ -79,8 +84,8 @@ func TestFieldReflectionWithNestedPointerStruct(t *testing.T) {
 
 	assert.NotEmpty(t, obj.Filter)
 
-	assert.Equal(t, obj.Filter.Title, title)
-	assert.Equal(t, obj.Filter.Number, number)
+	assert.Equal(t, *obj.Filter.Title.Eq, title)
+	assert.Equal(t, *obj.Filter.Number.Eq, number)
 
 }
 

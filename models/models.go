@@ -14,9 +14,18 @@ type StringFilter struct {
 	Like *string `json:"like" mapstructure:"like" op:"like"`
 }
 
+type NumberFilter struct {
+	Neq *int `json:"neq"`
+	Eq  *int `json:"eq"`
+	Lt  *int `json:"lt"`
+	Gt  *int `json:"gt"`
+	Gte *int `json:"gte"`
+	Lte *int `json:"lte"`
+}
+
 type TicketFilterInput struct {
-	Title  *StringFilter `json:"name" mapstructure:"name"`
-	Number *int
+	Title  *StringFilter `json:"title"`
+	Number *NumberFilter `json:"number"`
 }
 
 type TicketOrderInput struct {

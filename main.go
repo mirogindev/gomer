@@ -6,8 +6,8 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
 	log "github.com/sirupsen/logrus"
-	"gogql/gqbuilder"
-	"gogql/models"
+	"gomer/gqbuilder"
+	"gomer/models"
 	"net/http"
 	"time"
 )

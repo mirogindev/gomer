@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/graphql-go/graphql"
-	"gogql/gqbuilder"
-	"gogql/models"
+	"gomer/gqbuilder"
+	"gomer/models"
 	"log"
 	"testing"
 	"time"
@@ -28,8 +28,8 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	mutationObj := builder.Mutation()
 
-	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, rgs struct {
-		input *models.TicketInsertInput
+	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, args struct {
+		Input *models.TicketInsertInput
 	}) (*models.Ticket, error) {
 		var tags []*models.Tag
 		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
@@ -42,7 +42,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 	queryObj := builder.Query()
 
 	queryObj.FieldResolver("ticket", func(ctx context.Context, args struct {
-		Filter *models.TagFilterInput
+		Filter *models.TicketFilterInput
 		Order  *models.TagOrderInput
 		Limit  *int
 		Offset *int
@@ -61,38 +61,35 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	subObj := builder.Subscription()
 
-	subObj.FieldSubscription("test_sub", func(ctx context.Context, c chan *models.Ticket, args struct {
-		Filter *models.TagFilterInput
+	subObj.FieldSubscription("test_sub", models.Ticket{}, func(ctx context.Context, c chan interface{}, args struct {
+		Filter *models.TicketFilterInput
 		Order  *models.TagOrderInput
 		Limit  *int
 		Offset *int
-	}) (chan *models.Ticket, error) {
-		go func() {
-			var i int
+	}) {
+		var i int
 
-			for {
-				i++
+		for {
+			i++
 
-				ticket := models.Ticket{ID: fmt.Sprintf("%d", i)}
+			ticket := models.Ticket{ID: fmt.Sprintf("%d", i), Number: i}
 
-				select {
-				case <-ctx.Done():
-					log.Println("[RootSubscription] [Subscribe] subscription canceled")
-					close(c)
-					return
-				default:
-					c <- &ticket
-				}
-
-				time.Sleep(2000 * time.Millisecond)
-
-				if i == 1000 {
-					close(c)
-					return
-				}
+			select {
+			case <-ctx.Done():
+				log.Println("[RootSubscription] [Subscribe] subscription canceled")
+				close(c)
+				return
+			default:
+				c <- ticket
 			}
-		}()
-		return c, nil
+
+			time.Sleep(200 * time.Millisecond)
+
+			if i == 10 {
+				close(c)
+				return
+			}
+		}
 	})
 
 	schema, err := builder.Build()
@@ -106,12 +103,6 @@ func Test1(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
-	// Query
-	//query := `
-	//	{
-	//		ticket(limit: 15, offset: 10) { title }
-	//	}`
 
 	query := `
 		{

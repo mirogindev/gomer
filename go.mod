@@ -1,4 +1,4 @@
-module gogql
+module gomer
 
 go 1.16
 
