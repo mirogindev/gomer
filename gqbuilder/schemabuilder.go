@@ -3,6 +3,7 @@ package gqbuilder
 import (
 	"context"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/language/ast"
 	log "github.com/sirupsen/logrus"
 	"reflect"
 )
@@ -299,12 +300,14 @@ func (s *SchemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields 
 			Args: args,
 			Type: ro,
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				in := make([]reflect.Value, fun.Type().NumIn())
 				if p.Context == nil {
-					in[0] = reflect.New(fun.Type().In(0)).Elem()
-				} else {
-					in[0] = reflect.ValueOf(p.Context)
+					p.Context = context.Background()
 				}
+				od := p.Info.Operation.(*ast.OperationDefinition)
+				p.Context = context.WithValue(p.Context, "selection", od.SelectionSet)
+				in := make([]reflect.Value, fun.Type().NumIn())
+
+				in[0] = reflect.ValueOf(p.Context)
 
 				if p.Args != nil {
 					argType, pos := getArgs(fun.Type())

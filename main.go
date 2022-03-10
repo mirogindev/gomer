@@ -75,6 +75,8 @@ func BuildTestSchema() (graphql.Schema, error) {
 		Limit  *int
 		Offset *int
 	}) ([]*models.Ticket, error) {
+		st := ctx.Value("selection")
+		log.Debug(st)
 		var tickets []*models.Ticket
 		var tags []*models.Tag
 		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
