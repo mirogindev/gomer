@@ -10,6 +10,7 @@ import (
 const (
 	Query    = "Query"
 	Mutation = "Mutation"
+	//SubscriptionObject = "SubscriptionObject"
 )
 
 type HandlerFn func(ctx context.Context, args interface{}) (interface{}, error)
@@ -18,9 +19,10 @@ type query struct{}
 type mutation struct{}
 
 type schemaBuilder struct {
-	objects      map[string]*Object
-	builtObjects map[string]graphql.Output
-	builtInputs  map[string]graphql.Input
+	subscriptions *SubscriptionObject
+	objects       map[string]*Object
+	builtObjects  map[string]graphql.Output
+	builtInputs   map[string]graphql.Input
 }
 
 func GetBuilder() *schemaBuilder {
@@ -49,6 +51,18 @@ func (s *schemaBuilder) Mutation() *Object {
 	return s.objects[name]
 }
 
+func (s *schemaBuilder) Subscription() *SubscriptionObject {
+
+	if s.subscriptions != nil {
+		log.Fatalf("Subcscription object already exist")
+	}
+
+	s.subscriptions = &SubscriptionObject{
+		Name: "Subscription",
+	}
+	return s.subscriptions
+}
+
 func (s *schemaBuilder) Object(name string, obj interface{}) *Object {
 	s.checkObjects(name)
 
@@ -64,7 +78,16 @@ func (s *schemaBuilder) checkObjects(name string) {
 		s.objects = make(map[string]*Object)
 	}
 	if _, ok := s.objects[name]; ok {
-		log.Panicf("Func with name %s aready exists", name)
+		log.Panicf("Resolver with name %s aready exists", name)
+	}
+}
+
+func (s *schemaBuilder) checkSubscriptions(name string) {
+	if s.subscriptions == nil {
+		s.subscriptions = &SubscriptionObject{}
+	}
+	if _, ok := s.subscriptions.Methods[name]; ok {
+		log.Panicf("Subscription with name %s aready exists", name)
 	}
 }
 
@@ -188,7 +211,10 @@ func (s *schemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool)
 	}
 
 	if reflectedType.Kind() == reflect.Ptr {
+
 		return s.getGqOutput(reflectedType.Elem(), false)
+	} else if reflectedType.Kind() == reflect.Chan {
+		return s.getGqOutput(reflectedType.Elem(), true)
 	} else if reflectedType.Kind() == reflect.Slice {
 		obj := graphql.NewList(s.getGqOutput(reflectedType.Elem(), false))
 		if isRequired {
@@ -237,7 +263,7 @@ func (s *schemaBuilder) buildQuery() *graphql.Object {
 
 		return rootQuery
 	}
-	log.Fatalln("Query object is not found")
+	log.Error("Query object is not found")
 	return nil
 }
 
@@ -248,8 +274,20 @@ func (s *schemaBuilder) buildMutation() *graphql.Object {
 
 		return rootQuery
 	}
-	log.Fatalln("Mutation object is not found")
+	log.Error("Mutation object is not found")
 	return nil
+}
+
+func (s *schemaBuilder) buildSubscription() *graphql.Object {
+	if s.subscriptions == nil {
+		log.Error("Subscription object is not found")
+		return nil
+	}
+
+	fields := s.buildSubscriptionMethods(s.subscriptions.Methods)
+	rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootSubscription", Fields: fields})
+
+	return rootQuery
 }
 
 func (s *schemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields {
@@ -269,15 +307,7 @@ func (s *schemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields 
 					in[0] = reflect.ValueOf(p.Context)
 				}
 
-				if p.Args == nil {
-					//argType,_ := getArgs(fun.Type())
-					//args := reflect.New(argType).Elem()
-					////argObj := reflect.TypeOf(args)
-					//////for i := 0; i < argObj.NumField(); i++ {
-					//////	f := argObj.Field(i)
-					//////}
-
-				} else {
+				if p.Args != nil {
 					argType, pos := getArgs(fun.Type())
 					if _, ok := p.Source.(map[string]interface{}); !ok {
 						in[pos-1] = reflect.ValueOf(p.Source)
@@ -301,6 +331,43 @@ func (s *schemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields 
 				}
 
 				return respData, err
+			},
+		}
+	}
+	return fields
+}
+
+func (s *schemaBuilder) buildSubscriptionMethods(methods map[string]*SubscriptionMethod) graphql.Fields {
+	fields := graphql.Fields{}
+	for n, v := range methods {
+		ro := s.getGqOutput(reflect.TypeOf(v.Output), true)
+		args := s.getResolverArgs(v.Fn)
+		fun := s.getFunc(v.Fn)
+		fields[n] = &graphql.Field{
+			Args: args,
+			Type: ro,
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				return p.Source, nil
+			},
+			Subscribe: func(p graphql.ResolveParams) (interface{}, error) {
+				c := make(chan interface{})
+				in := make([]reflect.Value, fun.Type().NumIn())
+				if p.Context == nil {
+					in[0] = reflect.New(fun.Type().In(0)).Elem()
+				} else {
+					in[0] = reflect.ValueOf(p.Context)
+				}
+				in[1] = reflect.ValueOf(c)
+				if p.Args != nil {
+					argType, _ := getArgs(fun.Type())
+					args := ReflectStruct(argType, p.Args)
+					in[2] = args
+				}
+
+				go func() {
+					fun.Call(in)
+				}()
+				return c, nil
 			},
 		}
 	}
@@ -392,48 +459,14 @@ func reflectField(name string, f reflect.Type, params map[string]interface{}) re
 	return reflect.ValueOf(val)
 }
 
-//func reflectValue(name string, t reflect.Type, v map[string]interface{}) reflect.Value {
-//	log.Println(name)
-//	val := v[strcase.ToSnake(name)]
-//	if val == nil {
-//		return reflect.New(t)
-//	}
-//	if t.Kind() == reflect.Ptr {
-//		pr := reflect.New(t.Elem())
-//		pr.Elem().Set(reflectValue(name, t.Elem(), v))
-//		return pr
-//	} else if t.Kind() == reflect.Struct {
-//		se := reflect.New(t).Elem()
-//		for i := 0; i < t.NumField(); i++ {
-//			f := t.Field(i)
-//			val2 := reflectValue(f.Name, f.Type, v[strcase.ToSnake(name)].(map[string]interface{}))
-//			se.Field(i).Set(val2)
-//		}
-//
-//		return se
-//	}
-//	//tn := t.Name()
-//	//tk := t.Kind()
-//	//log.Println(tn, tk)
-//	//	pr := reflect.New(t)
-//	//pr.Set(reflect.ValueOf(val))
-//	return reflect.ValueOf(val)
-//}
-
 func (s *schemaBuilder) getResolverOutput(fn interface{}) graphql.Output {
 	rf := reflect.TypeOf(fn).Out(0)
+	t := rf.Elem().Name()
+	log.Println(t)
 	return s.getGqOutput(rf, true)
 }
 
 func (s *schemaBuilder) getResolverArgs(fn interface{}) graphql.FieldConfigArgument {
-	//t := reflect.TypeOf(fn)
-	//if t.NumIn() == 2 {
-	//	rf := reflect.TypeOf(fn).In(1)
-	//	return s.buildFieldConfigArgument(rf)
-	//} else {
-	//	rf := reflect.TypeOf(fn).In(2)
-	//	return s.buildFieldConfigArgument(rf)
-	//}
 	args, _ := getArgs(reflect.TypeOf(fn))
 	return s.buildFieldConfigArgument(args)
 }
@@ -445,10 +478,12 @@ func (s *schemaBuilder) getFunc(fn interface{}) reflect.Value {
 
 func (s *schemaBuilder) Build() (graphql.Schema, error) {
 	s.buildObjects()
+
 	mutation := s.buildMutation()
 	query := s.buildQuery()
+	subscription := s.buildSubscription()
 
-	schemaConfig := graphql.SchemaConfig{Query: query, Mutation: mutation}
+	schemaConfig := graphql.SchemaConfig{Subscription: subscription, Query: query, Mutation: mutation}
 	schema, err := graphql.NewSchema(schemaConfig)
 	return schema, err
 }

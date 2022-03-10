@@ -13,7 +13,7 @@ type Object struct {
 	Methods     map[string]*Method
 }
 
-func (s *Object) FieldFunc(name string, handler interface{}) {
+func (s *Object) FieldResolver(name string, handler interface{}) {
 	s.checkMethods(name)
 
 	s.Methods[name] = &Method{

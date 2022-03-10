@@ -9,6 +9,7 @@ import (
 	"gogql/models"
 	"log"
 	"testing"
+	"time"
 )
 
 func BuildTestSchema() (graphql.Schema, error) {
@@ -16,7 +17,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	ticket := builder.Object("Ticket", models.Ticket{})
 
-	ticket.FieldFunc("tags", func(ctx context.Context, o *models.Ticket, args struct {
+	ticket.FieldResolver("tags", func(ctx context.Context, o *models.Ticket, args struct {
 		Filter *models.TagFilterInput
 		Order  *models.TagOrderInput
 		Limit  *int
@@ -27,7 +28,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	mutationObj := builder.Mutation()
 
-	mutationObj.FieldFunc("ticket_insert", func(ctx context.Context, rgs struct {
+	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, rgs struct {
 		input *models.TicketInsertInput
 	}) (*models.Ticket, error) {
 		var tags []*models.Tag
@@ -40,7 +41,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	queryObj := builder.Query()
 
-	queryObj.FieldFunc("ticket", func(ctx context.Context, rgs struct {
+	queryObj.FieldResolver("ticket", func(ctx context.Context, args struct {
 		Filter *models.TagFilterInput
 		Order  *models.TagOrderInput
 		Limit  *int
@@ -56,6 +57,42 @@ func BuildTestSchema() (graphql.Schema, error) {
 		tickets = append(tickets, &models.Ticket{Title: "Ticket2", ID: "2", Tags: tags})
 		tickets = append(tickets, &models.Ticket{Title: "Ticket3", ID: "3", Tags: tags})
 		return tickets, nil
+	})
+
+	subObj := builder.Subscription()
+
+	subObj.FieldSubscription("test_sub", func(ctx context.Context, c chan *models.Ticket, args struct {
+		Filter *models.TagFilterInput
+		Order  *models.TagOrderInput
+		Limit  *int
+		Offset *int
+	}) (chan *models.Ticket, error) {
+		go func() {
+			var i int
+
+			for {
+				i++
+
+				ticket := models.Ticket{ID: fmt.Sprintf("%d", i)}
+
+				select {
+				case <-ctx.Done():
+					log.Println("[RootSubscription] [Subscribe] subscription canceled")
+					close(c)
+					return
+				default:
+					c <- &ticket
+				}
+
+				time.Sleep(2000 * time.Millisecond)
+
+				if i == 1000 {
+					close(c)
+					return
+				}
+			}
+		}()
+		return c, nil
 	})
 
 	schema, err := builder.Build()
@@ -99,12 +136,6 @@ func TestWithRelationQuery(t *testing.T) {
 		panic(err)
 	}
 
-	// Query
-	//query := `
-	//	{
-	//		ticket(limit: 15, offset: 10) { title }
-	//	}`
-
 	query := `
 		{
 			ticket(limit: 15, offset: 10, filter:{ title:"ddd" } ) { title, tags( limit: 10) { title } }
@@ -118,4 +149,41 @@ func TestWithRelationQuery(t *testing.T) {
 	rJSON, _ := json.Marshal(r)
 	fmt.Printf("%s \n", rJSON)
 
+}
+
+func TestSubscription(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	schema, err := BuildTestSchema()
+
+	if err != nil {
+		panic(err)
+	}
+
+	query := `
+				subscription {
+					test_sub
+				}
+			`
+	c := graphql.Subscribe(graphql.Params{
+		Context:       ctx,
+		OperationName: "",
+		RequestString: query,
+		Schema:        schema,
+	})
+
+	var results []*graphql.Result
+	for res := range c {
+		t.Log(pretty(res))
+		results = append(results, res)
+	}
+
+}
+
+func pretty(x interface{}) string {
+	got, err := json.MarshalIndent(x, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return string(got)
 }

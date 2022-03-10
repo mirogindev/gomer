@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
+	log "github.com/sirupsen/logrus"
 	"gogql/gqbuilder"
 	"gogql/models"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -17,6 +20,10 @@ func main() {
 		panic(err)
 	}
 
+	if err != nil {
+		log.Fatalf("failed to create new schema, error: %v", err)
+	}
+
 	h := handler.New(&handler.Config{
 		Schema:     &schema,
 		Pretty:     true,
@@ -24,8 +31,12 @@ func main() {
 		Playground: true,
 	})
 
+	sh := gqbuilder.GetSubscriptionHandler(schema)
+
 	http.Handle("/graphql", h)
-	http.ListenAndServe(":8080", nil)
+
+	http.HandleFunc("/subscriptions", sh.SubscriptionsHandlerFunc)
+	log.Fatal(http.ListenAndServe(":8081", nil))
 
 }
 
@@ -34,7 +45,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	ticket := builder.Object("Ticket", models.Ticket{})
 
-	ticket.FieldFunc("tags", func(ctx context.Context, o *models.Ticket, args struct {
+	ticket.FieldResolver("tags", func(ctx context.Context, o *models.Ticket, args struct {
 		Filter *models.TagFilterInput
 		Order  *models.TagOrderInput
 		Limit  *int
@@ -45,7 +56,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	mutationObj := builder.Mutation()
 
-	mutationObj.FieldFunc("ticket_insert", func(ctx context.Context, args struct {
+	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, args struct {
 		Input *models.TicketInsertInput
 	}) (*models.Ticket, error) {
 		var tags []*models.Tag
@@ -58,7 +69,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	queryObj := builder.Query()
 
-	queryObj.FieldFunc("ticket", func(ctx context.Context, rgs struct {
+	queryObj.FieldResolver("ticket", func(ctx context.Context, args struct {
 		Filter *models.TicketFilterInput
 		Order  *models.TagOrderInput
 		Limit  *int
@@ -74,6 +85,39 @@ func BuildTestSchema() (graphql.Schema, error) {
 		tickets = append(tickets, &models.Ticket{Title: "Ticket2", ID: "2", Tags: tags})
 		tickets = append(tickets, &models.Ticket{Title: "Ticket3", ID: "3", Tags: tags})
 		return tickets, nil
+	})
+
+	subObj := builder.Subscription()
+
+	subObj.FieldSubscription("test_sub", models.Ticket{}, func(ctx context.Context, c chan interface{}, args struct {
+		Filter *models.TicketFilterInput
+		Order  *models.TagOrderInput
+		Limit  *int
+		Offset *int
+	}) {
+		var i int
+
+		for {
+			i++
+
+			ticket := models.Ticket{ID: fmt.Sprintf("%d", i), Number: i}
+
+			select {
+			case <-ctx.Done():
+				log.Println("[RootSubscription] [Subscribe] subscription canceled")
+				close(c)
+				return
+			default:
+				c <- ticket
+			}
+
+			time.Sleep(200 * time.Millisecond)
+
+			if i == 10 {
+				close(c)
+				return
+			}
+		}
 	})
 
 	schema, err := builder.Build()
