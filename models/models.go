@@ -41,8 +41,8 @@ type TicketOrderInput struct {
 }
 
 type TagFilterInput struct {
-	Title  string
-	Number *int
+	Title  *StringFilter
+	Number *NumberFilter
 }
 
 type TagOrderInput struct {

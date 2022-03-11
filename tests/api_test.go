@@ -43,7 +43,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	queryObj.FieldResolver("ticket", func(ctx context.Context, args struct {
 		Filter *models.TicketFilterInput
-		Order  *models.TagOrderInput
+		Order  *models.TicketOrderInput
 		Limit  *int
 		Offset *int
 	}) ([]*models.Ticket, error) {
@@ -168,6 +168,29 @@ func TestSubscription(t *testing.T) {
 		t.Log(pretty(res))
 		results = append(results, res)
 	}
+
+}
+
+func TestParseNestedArgs(t *testing.T) {
+
+	schema, err := BuildTestSchema()
+
+	if err != nil {
+		panic(err)
+	}
+
+	query := `
+		{
+			ticket(limit: 15, offset: 17, filter:{ title:{eq: "ddd" } } ) { title, tags(limit:5,offset:6){ title } }
+		}
+	`
+	params := graphql.Params{Schema: schema, RequestString: query}
+	r := graphql.Do(params)
+	if len(r.Errors) > 0 {
+		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
+	}
+	rJSON, _ := json.Marshal(r)
+	fmt.Printf("%s \n", rJSON)
 
 }
 

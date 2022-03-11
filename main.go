@@ -82,7 +82,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	queryObj.FieldResolver("ticket", func(ctx context.Context, args struct {
 		Filter *models.TicketFilterInput
-		Order  *models.TagOrderInput
+		Order  *models.TicketOrderInput
 		Limit  *int
 		Offset *int
 	}) ([]*models.Ticket, error) {
@@ -104,7 +104,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	subObj.FieldSubscription("test_sub", models.Ticket{}, func(ctx context.Context, c chan interface{}, args struct {
 		Filter *models.TicketFilterInput
-		Order  *models.TagOrderInput
+		Order  *models.TicketFilterInput
 		Limit  *int
 		Offset *int
 	}) {

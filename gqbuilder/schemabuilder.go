@@ -3,7 +3,6 @@ package gqbuilder
 import (
 	"context"
 	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/language/ast"
 	log "github.com/sirupsen/logrus"
 	"reflect"
 )
@@ -21,6 +20,7 @@ type mutation struct{}
 type SchemaBuilder struct {
 	subscriptions *SubscriptionObject
 	objects       map[string]*Object
+	argsMap       map[string]map[string]interface{}
 	builtObjects  map[string]graphql.Output
 	builtInputs   map[string]graphql.Input
 }
@@ -124,6 +124,7 @@ func (s *SchemaBuilder) buildInputObject(key string, t reflect.Type) graphql.Inp
 	})
 
 	s.builtInputs[key] = obj
+	//s.inputsMap[key] = reflect.New(t).Interface()
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -269,7 +270,7 @@ func (s *SchemaBuilder) buildObjects() error {
 		}
 
 		s.builtObjects[key] = obj
-		methodFields := s.buildMethods(v.Methods)
+		methodFields := s.buildMethods(v)
 		objectFields := s.buildObjectFields(t, fields)
 		mergedFields := mergeFields(methodFields, objectFields)
 		for fn, field := range mergedFields {
@@ -281,8 +282,8 @@ func (s *SchemaBuilder) buildObjects() error {
 
 func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	if qf, ok := s.objects[Query]; ok {
-		fields := s.buildMethods(qf.Methods)
-		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootQuery", Fields: fields})
+		fields := s.buildMethods(qf)
+		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: Query, Fields: fields})
 
 		return rootQuery
 	}
@@ -292,8 +293,8 @@ func (s *SchemaBuilder) buildQuery() *graphql.Object {
 
 func (s *SchemaBuilder) buildMutation() *graphql.Object {
 	if qf, ok := s.objects[Mutation]; ok {
-		fields := s.buildMethods(qf.Methods)
-		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootMutation", Fields: fields})
+		fields := s.buildMethods(qf)
+		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: Mutation, Fields: fields})
 
 		return rootQuery
 	}
@@ -308,16 +309,25 @@ func (s *SchemaBuilder) buildSubscription() *graphql.Object {
 	}
 
 	fields := s.buildSubscriptionMethods(s.subscriptions.Methods)
-	rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "RootSubscription", Fields: fields})
+	rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: "Subscription", Fields: fields})
 
 	return rootQuery
 }
 
-func (s *SchemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields {
+func (s *SchemaBuilder) buildMethods(o *Object) graphql.Fields {
+	if s.argsMap == nil {
+		s.argsMap = make(map[string]map[string]interface{})
+	}
+
 	fields := graphql.Fields{}
-	for n, v := range methods {
-		ro := s.getResolverOutput(v.Fn)
-		args := s.getResolverArgs(v.Fn)
+	for n, v := range o.Methods {
+		_, ro := s.getResolverOutput(v.Fn)
+		argsType, args := s.getResolverArgs(v.Fn)
+		if s.argsMap[o.Name] == nil {
+			s.argsMap[o.Name] = make(map[string]interface{})
+		}
+		s.argsMap[o.Name][n] = reflect.New(argsType).Elem().Interface()
+
 		fun := s.getFunc(v.Fn)
 		fields[n] = &graphql.Field{
 			Args: args,
@@ -326,9 +336,10 @@ func (s *SchemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields 
 				if p.Context == nil {
 					p.Context = context.Background()
 				}
-				od := p.Info.Operation.(*ast.OperationDefinition)
-				p.Context = context.WithValue(p.Context, "selection", od.SelectionSet)
-				p.Context = context.WithValue(p.Context, "args", p.Args)
+				if _, ok := p.Source.(map[string]interface{}); ok {
+					selection := ParseSelections(p, s.argsMap)
+					p.Context = context.WithValue(p.Context, "selection", selection)
+				}
 				in := make([]reflect.Value, fun.Type().NumIn())
 
 				in[0] = reflect.ValueOf(p.Context)
@@ -367,7 +378,7 @@ func (s *SchemaBuilder) buildSubscriptionMethods(methods map[string]*Subscriptio
 	fields := graphql.Fields{}
 	for n, v := range methods {
 		ro := s.getGqOutput(reflect.TypeOf(v.Output), true)
-		args := s.getResolverArgs(v.Fn)
+		_, args := s.getResolverArgs(v.Fn)
 		fun := s.getFunc(v.Fn)
 		fields[n] = &graphql.Field{
 			Args: args,
@@ -485,14 +496,14 @@ func reflectField(name string, f reflect.Type, params map[string]interface{}) re
 	return reflect.ValueOf(val)
 }
 
-func (s *SchemaBuilder) getResolverOutput(fn interface{}) graphql.Output {
+func (s *SchemaBuilder) getResolverOutput(fn interface{}) (reflect.Type, graphql.Output) {
 	rf := reflect.TypeOf(fn).Out(0)
-	return s.getGqOutput(rf, true)
+	return rf, s.getGqOutput(rf, true)
 }
 
-func (s *SchemaBuilder) getResolverArgs(fn interface{}) graphql.FieldConfigArgument {
+func (s *SchemaBuilder) getResolverArgs(fn interface{}) (reflect.Type, graphql.FieldConfigArgument) {
 	args, _ := getArgs(reflect.TypeOf(fn))
-	return s.buildFieldConfigArgument(args)
+	return args, s.buildFieldConfigArgument(args)
 }
 
 func (s *SchemaBuilder) getFunc(fn interface{}) reflect.Value {
