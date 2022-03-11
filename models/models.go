@@ -1,12 +1,16 @@
 package models
 
-import "time"
+import (
+	"github.com/shopspring/decimal"
+	"time"
+)
 
 type Ticket struct {
 	ID         string
 	Title      string
 	Number     int
 	Time       time.Time
+	Decimal    decimal.Decimal
 	Categories []*Category
 	Tags       []*Tag
 }

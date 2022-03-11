@@ -12,10 +12,11 @@ var scalarsMap = map[string]*graphql.Scalar{
 	"string":   graphql.String,
 	"int":      graphql.Int,
 	"int64":    graphql.Int,
-	"float":    graphql.Float,
 	"float64":  graphql.Float,
+	"float32":  graphql.Float,
 	"datetime": graphql.DateTime,
 	"Time":     graphql.DateTime,
+	"Decimal":  graphql.String,
 	"bool":     graphql.Boolean,
 }
 

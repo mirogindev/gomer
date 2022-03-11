@@ -502,7 +502,7 @@ func (s *SchemaBuilder) Build() (graphql.Schema, error) {
 	schema, err := graphql.NewSchema(schemaConfig)
 
 	if err != nil {
-		log.Error("Error build Gomer schema")
+		log.Error("Error build Gomer schema", err)
 		return schema, err
 	}
 	log.Infoln("Gomer schema build successfully")
