@@ -261,7 +261,13 @@ func (s *SchemaBuilder) buildObjects() error {
 		t := reflect.TypeOf(v.Type)
 		key := getKey(t)
 		fields := graphql.Fields{}
-		obj := graphql.NewObject(graphql.ObjectConfig{Name: n, Fields: fields})
+		var obj *graphql.Object
+		if v, ok := s.builtObjects[key]; ok {
+			obj = v.(*graphql.Object)
+		} else {
+			obj = graphql.NewObject(graphql.ObjectConfig{Name: n, Fields: fields})
+		}
+
 		s.builtObjects[key] = obj
 		methodFields := s.buildMethods(v.Methods)
 		objectFields := s.buildObjectFields(t, fields)

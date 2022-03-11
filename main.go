@@ -54,6 +54,17 @@ func BuildTestSchema() (graphql.Schema, error) {
 		return o.Tags, nil
 	})
 
+	tag := builder.Object("Tag", models.Ticket{})
+
+	tag.FieldResolver("tags", func(ctx context.Context, o *models.Ticket, args struct {
+		Filter *models.TagFilterInput
+		Order  *models.TagOrderInput
+		Limit  *int
+		Offset *int
+	}) ([]*models.Tag, error) {
+		return o.Tags, nil
+	})
+
 	mutationObj := builder.Mutation()
 
 	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, args struct {
