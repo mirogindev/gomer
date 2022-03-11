@@ -36,7 +36,7 @@ func main() {
 	http.Handle("/graphql", h)
 
 	http.HandleFunc("/subscriptions", sh.SubscriptionsHandlerFunc)
-	log.Fatal(http.ListenAndServe(":8081", nil))
+	log.Fatal(http.ListenAndServe(":8089", nil))
 
 }
 
@@ -58,13 +58,13 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, args struct {
 		Input *models.TicketInsertInput
-	}) (*models.Ticket, error) {
+	}) (models.Ticket, error) {
 		var tags []*models.Tag
 		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
 		tags = append(tags, &models.Tag{Title: "Tag2", ID: "2"})
 		tags = append(tags, &models.Tag{Title: "Tag3", ID: "3"})
 
-		return &models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
+		return models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
 	})
 
 	queryObj := builder.Query()

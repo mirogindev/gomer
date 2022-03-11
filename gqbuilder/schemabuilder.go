@@ -255,6 +255,9 @@ func (s *SchemaBuilder) buildObjects() error {
 		s.builtObjects = make(map[string]graphql.Output)
 	}
 	for n, v := range s.objects {
+		if n == Mutation || n == Query {
+			continue
+		}
 		t := reflect.TypeOf(v.Type)
 		key := getKey(t)
 		fields := graphql.Fields{}
