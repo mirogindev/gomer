@@ -91,40 +91,48 @@ func (s *SchemaBuilder) checkSubscriptions(name string) {
 	}
 }
 
-func (s *SchemaBuilder) buildObjectFields(t reflect.Type) graphql.Fields {
-	fields := graphql.Fields{}
-
+func (s *SchemaBuilder) buildObjectFields(t reflect.Type, fields graphql.Fields) graphql.Fields {
+	//	fields := graphql.Fields{}
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		n, fo := s.buildField(f)
 		fields[n] = fo
-	}
 
+	}
 	return fields
 }
 
-func (s *SchemaBuilder) buildObject(name string, t reflect.Type) graphql.Output {
-	fields := s.buildObjectFields(t)
-
-	return graphql.NewObject(graphql.ObjectConfig{
-		Name:   name,
+func (s *SchemaBuilder) buildObject(key string, t reflect.Type) graphql.Output {
+	fields := graphql.Fields{}
+	obj := graphql.NewObject(graphql.ObjectConfig{
+		Name:   t.Name(),
 		Fields: fields,
 	})
+	s.builtObjects[key] = obj
+
+	s.buildObjectFields(t, fields)
+
+	return obj
 }
 
-func (s *SchemaBuilder) buildInputObject(name string, t reflect.Type) graphql.Input {
+func (s *SchemaBuilder) buildInputObject(key string, t reflect.Type) graphql.Input {
 	fields := graphql.InputObjectConfigFieldMap{}
+
+	obj := graphql.NewInputObject(graphql.InputObjectConfig{
+		Name:   t.Name(),
+		Fields: fields,
+	})
+
+	s.builtInputs[key] = obj
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		n, fo := s.buildInputField(f)
 		fields[n] = fo
+		obj.AddFieldConfig(n, fo)
 	}
 
-	return graphql.NewInputObject(graphql.InputObjectConfig{
-		Name:   name,
-		Fields: fields,
-	})
+	return obj
 }
 
 func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldConfigArgument {
@@ -163,11 +171,11 @@ func (s *SchemaBuilder) buildField(reflectedType reflect.StructField) (string, *
 	n := getFieldName(reflectedType.Name)
 	gqType := s.getGqOutput(reflectedType.Type, true)
 
-	field := graphql.Field{
+	field := &graphql.Field{
 		Name: n,
 		Type: gqType,
 	}
-	return n, &field
+	return n, field
 }
 
 func (s *SchemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) graphql.Input {
@@ -184,31 +192,32 @@ func (s *SchemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) 
 		}
 		return obj
 
+	} else if v, ok := isScalar(reflectedType); ok {
+		if isRequired {
+			return graphql.NewNonNull(v)
+		}
+		return v
 	} else if reflectedType.Kind() == reflect.Struct {
 		key := getKey(reflectedType)
 		if v, ok := s.builtInputs[key]; ok {
 			return v
 		}
 
-		bo := s.buildInputObject(reflectedType.Name(), reflectedType)
-		s.builtInputs[key] = bo
+		bo := s.buildInputObject(key, reflectedType)
 
 		return bo
 	}
-	v, ok := isScalar(reflectedType)
-	if ok {
-		if isRequired {
-			return graphql.NewNonNull(v)
-		}
-		return v
-	}
+	//v, ok := isScalar(reflectedType)
+	//if ok {
+	//	if isRequired {
+	//		return graphql.NewNonNull(v)
+	//	}
+	//	return v
+	//}
 	return nil
 }
 
 func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool) graphql.Output {
-	if s.builtObjects == nil {
-		s.builtObjects = make(map[string]graphql.Output)
-	}
 
 	if reflectedType.Kind() == reflect.Ptr {
 
@@ -222,36 +231,41 @@ func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool)
 		}
 		return obj
 
+	} else if v, ok := isScalar(reflectedType); ok {
+		if isRequired {
+			return graphql.NewNonNull(v)
+		}
+		return v
 	} else if reflectedType.Kind() == reflect.Struct {
 		key := getKey(reflectedType)
 		if v, ok := s.builtObjects[key]; ok {
 			return v
 		}
 
-		bo := s.buildObject(reflectedType.Name(), reflectedType)
-		s.builtObjects[key] = bo
+		bo := s.buildObject(key, reflectedType)
 
 		return bo
 	}
-	v, ok := isScalar(reflectedType)
-	if ok {
-		if isRequired {
-			return graphql.NewNonNull(v)
-		}
-		return v
-	}
+
 	return nil
 }
 
 func (s *SchemaBuilder) buildObjects() error {
+	if s.builtObjects == nil {
+		s.builtObjects = make(map[string]graphql.Output)
+	}
 	for n, v := range s.objects {
 		t := reflect.TypeOf(v.Type)
-		methodFields := s.buildMethods(v.Methods)
-		objectFields := s.buildObjectFields(t)
-		fields := mergeFields(methodFields, objectFields)
-		obj := graphql.NewObject(graphql.ObjectConfig{Name: n, Fields: fields})
 		key := getKey(t)
+		fields := graphql.Fields{}
+		obj := graphql.NewObject(graphql.ObjectConfig{Name: n, Fields: fields})
 		s.builtObjects[key] = obj
+		methodFields := s.buildMethods(v.Methods)
+		objectFields := s.buildObjectFields(t, fields)
+		mergedFields := mergeFields(methodFields, objectFields)
+		for fn, field := range mergedFields {
+			fields[fn] = field
+		}
 	}
 	return nil
 }
@@ -305,6 +319,7 @@ func (s *SchemaBuilder) buildMethods(methods map[string]*Method) graphql.Fields 
 				}
 				od := p.Info.Operation.(*ast.OperationDefinition)
 				p.Context = context.WithValue(p.Context, "selection", od.SelectionSet)
+				p.Context = context.WithValue(p.Context, "args", p.Args)
 				in := make([]reflect.Value, fun.Type().NumIn())
 
 				in[0] = reflect.ValueOf(p.Context)

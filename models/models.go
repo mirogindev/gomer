@@ -1,9 +1,12 @@
 package models
 
+import "time"
+
 type Ticket struct {
 	ID         string
 	Title      string
 	Number     int
+	Time       time.Time
 	Categories []*Category
 	Tags       []*Tag
 }

@@ -15,6 +15,7 @@ var scalarsMap = map[string]*graphql.Scalar{
 	"float":    graphql.Float,
 	"float64":  graphql.Float,
 	"datetime": graphql.DateTime,
+	"Time":     graphql.DateTime,
 	"bool":     graphql.Boolean,
 }
 
