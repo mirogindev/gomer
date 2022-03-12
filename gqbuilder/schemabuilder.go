@@ -450,9 +450,14 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 					}
 				}
 			} else {
-				pr := reflect.New(f.Type.Elem())
-				pr.Elem().Set(reflectField(f.Name, f.Type.Elem(), params))
-				val.Field(i).Set(pr)
+
+				fVal := params[getFieldName(f.Name)]
+				if fVal != nil {
+					pr := reflect.New(f.Type.Elem())
+					pr.Elem().Set(reflectField(f.Name, f.Type.Elem(), params))
+					val.Field(i).Set(pr)
+				}
+
 			}
 		} else if f.Type.Kind() == reflect.Struct {
 			fName := getFieldName(f.Name)
@@ -482,7 +487,11 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 				}
 			}
 		} else {
-			val.Field(i).Set(reflectField(f.Name, f.Type, params))
+			fVal := params[getFieldName(f.Name)]
+			if fVal != nil {
+				val.Field(i).Set(reflectField(f.Name, f.Type, params))
+			}
+			//val.Field(i).Set(reflectField(f.Name, f.Type, params))
 		}
 	}
 	return val

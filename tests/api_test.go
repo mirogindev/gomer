@@ -47,6 +47,8 @@ func BuildTestSchema() (graphql.Schema, error) {
 		Limit  *int
 		Offset *int
 	}) ([]*models.Ticket, error) {
+		selection := ctx.Value("selection").([]*gqbuilder.Selection)
+		log.Println(selection)
 		var tickets []*models.Ticket
 		var tags []*models.Tag
 		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
@@ -106,7 +108,7 @@ func Test1(t *testing.T) {
 
 	query := `
 		{
-			ticket(limit: 15, offset: 10, filter:{ title:"ddd" } ) { title }
+			ticket(limit: 10, filter:{ title: { eq: "ddd" } } ) { title }
 		}
 	`
 	params := graphql.Params{Schema: schema, RequestString: query}
