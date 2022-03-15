@@ -26,8 +26,21 @@ const (
 	OUTPUT_TYPE = "OUTPUT_TYPE"
 )
 
+var defaultScalarsMap = map[string]*graphql.Scalar{
+	"string":   graphql.String,
+	"int":      graphql.Int,
+	"int64":    Int64Scalar,
+	"float64":  graphql.Float,
+	"float32":  graphql.Float,
+	"datetime": graphql.DateTime,
+	"Time":     graphql.DateTime,
+	"Decimal":  graphql.String,
+	"bool":     graphql.Boolean,
+}
+
 type SchemaBuilder struct {
 	subscriptions  *SubscriptionObject
+	scalars        map[string]*graphql.Scalar
 	objects        map[string]GomerObject
 	customObjects  map[string]GomerObject
 	outputsToBuild map[string]reflect.Type
@@ -172,6 +185,15 @@ func (s *SchemaBuilder) checkObjects(name string) {
 	}
 }
 
+func (s *SchemaBuilder) checkScalars(name string) {
+	if s.scalars == nil {
+		s.scalars = make(map[string]*graphql.Scalar)
+	}
+	if _, ok := s.scalars[name]; ok {
+		log.Panicf("Scalar with name %s aready exists", name)
+	}
+}
+
 func (s *SchemaBuilder) checkSubscriptions(name string) {
 	if s.subscriptions == nil {
 		s.subscriptions = &SubscriptionObject{}
@@ -231,7 +253,7 @@ func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldCo
 		f := t.Field(i)
 		var io graphql.Input
 		ao := getActualTypeRecursive(f.Type)
-		if v, ok := isScalar(ao); ok {
+		if v, ok := s.isScalar(ao); ok {
 			io = v
 		} else {
 			key := getKey(ao)
@@ -291,7 +313,7 @@ func (s *SchemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) 
 		}
 		return obj
 
-	} else if v, ok := isScalar(reflectedType); ok {
+	} else if v, ok := s.isScalar(reflectedType); ok {
 		if isRequired {
 			return graphql.NewNonNull(v)
 		}
@@ -323,7 +345,7 @@ func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool)
 		}
 		return obj
 
-	} else if v, ok := isScalar(reflectedType); ok {
+	} else if v, ok := s.isScalar(reflectedType); ok {
 		if isRequired {
 			return graphql.NewNonNull(v)
 		}
@@ -444,7 +466,7 @@ func (s *SchemaBuilder) findMethodObjectsRecursive(gm GomerObject) {
 }
 
 func (s *SchemaBuilder) processObject(t reflect.Type, objType string) {
-	if _, ok := isScalar(t); ok {
+	if _, ok := s.isScalar(t); ok {
 		return
 	}
 	key := getKey(t)
@@ -461,7 +483,6 @@ func (s *SchemaBuilder) processObject(t reflect.Type, objType string) {
 	} else {
 		panic(fmt.Sprintf("Invalid object type %s", objType))
 	}
-	log.Println("test")
 	s.findDependentObjects(t, objType)
 }
 
@@ -549,7 +570,7 @@ func (s *SchemaBuilder) getInputFieldTypeRecursive(t reflect.Type, required bool
 	case reflect.Slice:
 		return graphql.NewList(s.getInputFieldTypeRecursive(t.Elem(), true))
 	case reflect.Struct:
-		if v, ok := isScalar(t); ok {
+		if v, ok := s.isScalar(t); ok {
 			return s.getInputFieldType(v, required)
 		} else {
 			key := getKey(t)
@@ -558,7 +579,7 @@ func (s *SchemaBuilder) getInputFieldTypeRecursive(t reflect.Type, required bool
 		}
 	}
 
-	if v, ok := isScalar(t); ok {
+	if v, ok := s.isScalar(t); ok {
 		return s.getInputFieldType(v, required)
 	}
 
@@ -574,7 +595,7 @@ func (s *SchemaBuilder) getOutputFieldTypeRecursive(t reflect.Type, required boo
 	case reflect.Slice:
 		return graphql.NewList(s.getOutputFieldTypeRecursive(t.Elem(), true))
 	case reflect.Struct:
-		if v, ok := isScalar(t); ok {
+		if v, ok := s.isScalar(t); ok {
 			return s.getOutputFieldType(v, required)
 		} else {
 			key := getKey(t)
@@ -583,7 +604,7 @@ func (s *SchemaBuilder) getOutputFieldTypeRecursive(t reflect.Type, required boo
 		}
 	}
 
-	if v, ok := isScalar(t); ok {
+	if v, ok := s.isScalar(t); ok {
 		return s.getOutputFieldType(v, required)
 	}
 
@@ -808,7 +829,7 @@ func (s *SchemaBuilder) findDependentObjects(t reflect.Type, objType string) {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		ao := getActualTypeRecursive(f.Type)
-		_, scalar := isScalar(ao)
+		_, scalar := s.isScalar(ao)
 		if !scalar {
 			key := getKey(ao)
 			if objType == INPUT_TYPE {
@@ -884,12 +905,38 @@ func (s *SchemaBuilder) getResolverOutputObjectFromType(t reflect.Type) (graphql
 	return s.builtOutputs[getKey(t)], t
 }
 
+func (s *SchemaBuilder) RegisterScalar(key string, sType *graphql.Scalar) {
+	s.checkScalars(key)
+	s.scalars[key] = sType
+}
+
+func (s *SchemaBuilder) SetDefaultScalars() {
+	if s.scalars == nil {
+		s.scalars = make(map[string]*graphql.Scalar)
+	}
+
+	for k, v := range defaultScalarsMap {
+		if _, ok := s.scalars[k]; !ok {
+			s.scalars[k] = v
+		}
+	}
+}
+
+func (s *SchemaBuilder) isScalar(t reflect.Type) (*graphql.Scalar, bool) {
+	n := t.Name()
+	if v, ok := s.scalars[n]; ok {
+		return v, true
+	}
+	return nil, false
+}
+
 func (s *SchemaBuilder) getFunc(fn interface{}) reflect.Value {
 	rf := reflect.ValueOf(fn)
 	return rf
 }
 
 func (s *SchemaBuilder) Build() (graphql.Schema, error) {
+	s.SetDefaultScalars()
 	s.FindObjectsToBuild()
 	s.CreateObjects()
 	s.CreateObjectsFields()

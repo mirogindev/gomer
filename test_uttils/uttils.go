@@ -11,6 +11,7 @@ import (
 
 func CreateTestSchema() *gqbuilder.SchemaBuilder {
 	builder := gqbuilder.GetBuilder()
+	builder.RegisterScalar("int64", gqbuilder.Int64Scalar)
 
 	ticket := builder.Object("Ticket", models.Ticket{})
 

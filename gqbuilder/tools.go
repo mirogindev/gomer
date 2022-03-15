@@ -12,26 +12,6 @@ import (
 	"reflect"
 )
 
-var scalarsMap = map[string]*graphql.Scalar{
-	"string":   graphql.String,
-	"int":      graphql.Int,
-	"int64":    graphql.Int,
-	"float64":  graphql.Float,
-	"float32":  graphql.Float,
-	"datetime": graphql.DateTime,
-	"Time":     graphql.DateTime,
-	"Decimal":  graphql.String,
-	"bool":     graphql.Boolean,
-}
-
-func isScalar(t reflect.Type) (*graphql.Scalar, bool) {
-	n := t.Name()
-	if v, ok := scalarsMap[n]; ok {
-		return v, true
-	}
-	return nil, false
-}
-
 func hash(s string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(s))
@@ -241,7 +221,6 @@ func parseSelection(f ast.Selection, parentType *graphql.Object, p graphql.Resol
 
 		for _, s := range v.SelectionSet.Selections {
 			fieldObject := getFieldObject(fieldDef.Type)
-			log.Println(fieldObject)
 			ps := parseSelection(s, fieldObject, p, argsMap)
 			selections = append(selections, ps)
 		}

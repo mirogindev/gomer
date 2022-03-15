@@ -30,7 +30,14 @@ type NumberFilter struct {
 	Lte *int `json:"lte"`
 }
 
+type IDFilter struct {
+	Neq *int64   `json:"neq" mapstructure:"eq" op:"<>"`
+	Eq  *int64   `json:"eq" mapstructure:"eq" op:"="`
+	In  *[]int64 `json:"in" mapstructure:"in" op:"in"`
+}
+
 type TicketFilterInput struct {
+	ID     *IDFilter     `json:"id"`
 	Title  *StringFilter `json:"title"`
 	Number *NumberFilter `json:"number"`
 	And    *[]*TicketFilterInput
