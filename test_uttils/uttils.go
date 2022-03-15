@@ -17,6 +17,7 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 	ticket.FieldResolver("tags", func(ctx context.Context, o *models.Ticket, args struct {
 		Filter *models.TagFilterInput
 		Offset *int
+		Limit  *int
 	}) ([]*models.Tag, error) {
 		return o.Tags, nil
 	})

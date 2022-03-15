@@ -50,7 +50,7 @@ func TestWithRelationQuery(t *testing.T) {
 
 	query := `
 		{
-			ticket(limit: 15, offset: 10, filter:{ title:"ddd" } ) { title, tags( limit: 10) { title } }
+			ticket(limit: 15, offset: 10, filter:{ title: { eq :"ddd"} } ) { title, tags( limit: 10) { title } }
 		}
 	`
 	params := graphql.Params{Schema: schema, RequestString: query}

@@ -6,13 +6,13 @@ import (
 )
 
 type Ticket struct {
-	ID         string
-	Title      string
-	Number     int
-	Time       time.Time
-	Decimal    decimal.Decimal
-	Categories []*Category
-	Tags       []*Tag
+	ID         string          `json:"id"`
+	Title      string          `json:"title"`
+	Number     int             `json:"number"`
+	Time       time.Time       `json:"time"`
+	Decimal    decimal.Decimal `json:"decimal"`
+	Categories []*Category     `json:"categories"`
+	Tags       []*Tag          `json:"tags"`
 }
 
 type StringFilter struct {
@@ -33,6 +33,7 @@ type NumberFilter struct {
 type TicketFilterInput struct {
 	Title  *StringFilter `json:"title"`
 	Number *NumberFilter `json:"number"`
+	And    *[]*TicketFilterInput
 }
 
 type TicketOrderInput struct {
