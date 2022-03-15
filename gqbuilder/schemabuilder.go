@@ -697,7 +697,13 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 					if np, ok := params[fName]; ok {
 						pr := reflect.New(f.Type.Elem())
 						for _, v := range np.([]interface{}) {
-							item := ReflectStruct(f.Type.Elem().Elem(), v.(map[string]interface{}))
+							var item reflect.Value
+							if cv, ok := v.(map[string]interface{}); ok {
+								item = ReflectStruct(f.Type.Elem().Elem(), cv)
+							} else {
+								item = reflect.ValueOf(v)
+							}
+
 							elemSlice = reflect.Append(elemSlice, item)
 						}
 						pr.Elem().Set(elemSlice)
@@ -725,7 +731,12 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 			if f.Type.Elem().Kind() == reflect.Ptr {
 				if np, ok := params[fName]; ok {
 					for _, v := range np.([]interface{}) {
-						item := ReflectStruct(f.Type.Elem().Elem(), v.(map[string]interface{}))
+						var item reflect.Value
+						if cv, ok := v.(map[string]interface{}); ok {
+							item = ReflectStruct(f.Type.Elem().Elem(), cv)
+						} else {
+							item = reflect.ValueOf(v)
+						}
 						pr := reflect.New(f.Type.Elem().Elem())
 						pr.Elem().Set(item)
 						elemSlice = reflect.Append(elemSlice, pr)
@@ -735,7 +746,12 @@ func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value 
 			} else {
 				if np, ok := params[fName]; ok {
 					for _, v := range np.([]interface{}) {
-						item := ReflectStruct(f.Type.Elem(), v.(map[string]interface{}))
+						var item reflect.Value
+						if cv, ok := v.(map[string]interface{}); ok {
+							item = ReflectStruct(f.Type.Elem(), cv)
+						} else {
+							item = reflect.ValueOf(v)
+						}
 						elemSlice = reflect.Append(elemSlice, item)
 					}
 					val.Field(i).Set(elemSlice)

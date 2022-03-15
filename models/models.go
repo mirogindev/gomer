@@ -59,8 +59,10 @@ type TagOrderInput struct {
 }
 
 type TicketInsertInput struct {
-	Title  string
-	Number *int
+	Title           string
+	Number          *int
+	Numbers         []*int64
+	NumbersRequired []int64
 }
 
 type TicketUpdateInput struct {
