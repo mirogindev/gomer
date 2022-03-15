@@ -42,25 +42,14 @@ func main() {
 
 func BuildTestSchema() (graphql.Schema, error) {
 	builder := gqbuilder.GetBuilder()
+	builder.RegisterScalar("int64", gqbuilder.Int64Scalar)
 
 	ticket := builder.Object("Ticket", models.Ticket{})
 
 	ticket.FieldResolver("tags", func(ctx context.Context, o *models.Ticket, args struct {
 		Filter *models.TagFilterInput
-		Order  *models.TagOrderInput
-		Limit  *int
 		Offset *int
-	}) ([]*models.Tag, error) {
-		return o.Tags, nil
-	})
-
-	tag := builder.Object("Tag", models.Ticket{})
-
-	tag.FieldResolver("tags", func(ctx context.Context, o *models.Ticket, args struct {
-		Filter *models.TagFilterInput
-		Order  *models.TagOrderInput
 		Limit  *int
-		Offset *int
 	}) ([]*models.Tag, error) {
 		return o.Tags, nil
 	})
@@ -69,13 +58,35 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	mutationObj.FieldResolver("ticket_insert", func(ctx context.Context, args struct {
 		Input *models.TicketInsertInput
-	}) (models.Ticket, error) {
+	}) (*models.Ticket, error) {
 		var tags []*models.Tag
 		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
 		tags = append(tags, &models.Tag{Title: "Tag2", ID: "2"})
 		tags = append(tags, &models.Tag{Title: "Tag3", ID: "3"})
 
-		return models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
+		return &models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
+	})
+
+	mutationObj.FieldResolver("ticket_insert_many", func(ctx context.Context, args struct {
+		Input []*models.TicketInsertInput
+	}) (*models.Ticket, error) {
+		var tags []*models.Tag
+		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
+		tags = append(tags, &models.Tag{Title: "Tag2", ID: "2"})
+		tags = append(tags, &models.Tag{Title: "Tag3", ID: "3"})
+
+		return &models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
+	})
+
+	mutationObj.FieldResolver("ticket_update", func(ctx context.Context, args struct {
+		Input *models.TicketInsertInput
+	}) (*models.Ticket, error) {
+		var tags []*models.Tag
+		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
+		tags = append(tags, &models.Tag{Title: "Tag2", ID: "2"})
+		tags = append(tags, &models.Tag{Title: "Tag3", ID: "3"})
+
+		return &models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
 	})
 
 	queryObj := builder.Query()
@@ -86,8 +97,6 @@ func BuildTestSchema() (graphql.Schema, error) {
 		Limit  *int
 		Offset *int
 	}) ([]*models.Ticket, error) {
-		st := ctx.Value("selection")
-		log.Debug(st)
 		var tickets []*models.Ticket
 		var tags []*models.Tag
 		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
@@ -104,7 +113,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 
 	subObj.FieldSubscription("test_sub", models.Ticket{}, func(ctx context.Context, c chan interface{}, args struct {
 		Filter *models.TicketFilterInput
-		Order  *models.TicketFilterInput
+		Order  *models.TagOrderInput
 		Limit  *int
 		Offset *int
 	}) {

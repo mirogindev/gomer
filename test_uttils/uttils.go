@@ -36,6 +36,21 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 		return &models.Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
 	})
 
+	mutationObj.FieldResolver("ticket_insert_many", func(ctx context.Context, args struct {
+		Input []*models.TicketInsertInput
+	}) ([]*models.Ticket, error) {
+		var tickets []*models.Ticket
+		var tags []*models.Tag
+		tags = append(tags, &models.Tag{Title: "Tag1", ID: "1"})
+		tags = append(tags, &models.Tag{Title: "Tag2", ID: "2"})
+		tags = append(tags, &models.Tag{Title: "Tag3", ID: "3"})
+
+		tickets = append(tickets, &models.Ticket{Title: "Ticket1", ID: "1", Tags: tags})
+		tickets = append(tickets, &models.Ticket{Title: "Ticket2", ID: "2", Tags: tags})
+		tickets = append(tickets, &models.Ticket{Title: "Ticket3", ID: "3", Tags: tags})
+		return tickets, nil
+	})
+
 	mutationObj.FieldResolver("ticket_update", func(ctx context.Context, args struct {
 		Input *models.TicketInsertInput
 	}) (*models.Ticket, error) {

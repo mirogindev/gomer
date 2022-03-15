@@ -251,14 +251,14 @@ func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldCo
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		var io graphql.Input
-		ao := getActualTypeRecursive(f.Type)
-		if v, ok := s.isScalar(ao); ok {
-			io = v
-		} else {
-			key := getKey(ao)
-			io = s.builtInputs[key]
-		}
+
+		io, _ := s.getResolverInputObjectRecursive(f.Type, true)
+		//if v, ok := s.isScalar(aoType); ok {
+		//	io = v
+		//} else {
+		//	key := getKey(ao)
+		//	io = s.builtInputs[key]
+		//}
 
 		fields[getFieldName(f.Name)] = &graphql.ArgumentConfig{
 			Type: io,
@@ -401,7 +401,7 @@ func (s *SchemaBuilder) buildQuery() *graphql.Object {
 
 		return rootQuery
 	}
-	log.Error("Query object is not found")
+	log.Debug("Query object is not found")
 	return nil
 }
 
@@ -426,7 +426,7 @@ func (s *SchemaBuilder) buildMutation() *graphql.Object {
 
 		return rootMutation
 	}
-	log.Error("Mutation object is not found")
+	log.Debug("Mutation object is not found")
 	return nil
 }
 
@@ -437,7 +437,7 @@ func (s *SchemaBuilder) buildSubscription() *graphql.Object {
 
 		return rootSubscription
 	}
-	log.Error("Subscription object is not found")
+	log.Debug("Subscription object is not found")
 	return nil
 }
 
@@ -882,7 +882,7 @@ func (s *SchemaBuilder) getResolverOutputObjectRecursive(t reflect.Type, require
 	switch t.Kind() {
 	case reflect.Ptr:
 		obj, rType := s.getResolverOutputObjectRecursive(t.Elem(), false)
-		return graphql.NewNonNull(obj), rType
+		return obj, rType
 	case reflect.Slice:
 		obj, rType := s.getResolverOutputObjectRecursive(t.Elem(), required)
 		if required {
@@ -898,6 +898,34 @@ func (s *SchemaBuilder) getResolverOutputObjectRecursive(t reflect.Type, require
 	}
 
 	panic("Invalid output type")
+}
+
+func (s *SchemaBuilder) getResolverInputObjectRecursive(t reflect.Type, required bool) (graphql.Input, reflect.Type) {
+	switch t.Kind() {
+	case reflect.Ptr:
+		obj, rType := s.getResolverInputObjectRecursive(t.Elem(), false)
+		return obj, rType
+	case reflect.Slice:
+		obj, rType := s.getResolverInputObjectRecursive(t.Elem(), required)
+		if required {
+			return graphql.NewNonNull(graphql.NewList(obj)), rType
+		}
+
+		return graphql.NewList(obj), rType
+	case reflect.Struct:
+		if required {
+			return graphql.NewNonNull(s.builtInputs[getKey(t)]), t
+		}
+		return s.builtInputs[getKey(t)], t
+	}
+	if sc, ok := s.isScalar(t); ok {
+		if required {
+			return graphql.NewNonNull(sc), t
+		}
+		return sc, t
+	}
+
+	panic("Invalid input type")
 }
 
 func (s *SchemaBuilder) getResolverOutputObjectFromType(t reflect.Type) (graphql.Output, reflect.Type) {

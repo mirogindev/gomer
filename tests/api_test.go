@@ -40,6 +40,29 @@ func Test1(t *testing.T) {
 
 }
 
+func TestMutationMany(t *testing.T) {
+
+	schema, err := BuildTestSchema()
+
+	if err != nil {
+		panic(err)
+	}
+
+	query := `
+		mutation {
+			ticket_insert_many (input:[{title:"title1"},{ title:"title2"}]) { title }
+		}
+	`
+	params := graphql.Params{Schema: schema, RequestString: query}
+	r := graphql.Do(params)
+	if len(r.Errors) > 0 {
+		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
+	}
+	rJSON, _ := json.Marshal(r)
+	fmt.Printf("%s \n", rJSON)
+
+}
+
 func TestWithRelationQuery(t *testing.T) {
 
 	schema, err := BuildTestSchema()
