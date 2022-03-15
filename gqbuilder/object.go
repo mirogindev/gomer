@@ -13,6 +13,10 @@ type Object struct {
 	Methods     map[string]*Method
 }
 
+func (s *Object) GetType() interface{} {
+	return s.Type
+}
+
 func (s *Object) FieldResolver(name string, handler interface{}) {
 	s.checkMethods(name)
 

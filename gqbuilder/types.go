@@ -2,6 +2,10 @@ package gqbuilder
 
 import "github.com/graphql-go/graphql"
 
+type GomerObject interface {
+	GetType() interface{}
+}
+
 type SelectionSet struct {
 	Selections []*Selection
 }

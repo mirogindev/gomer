@@ -7,6 +7,7 @@ import (
 	"github.com/iancoleman/strcase"
 	"github.com/mirogindev/gomer/models"
 	log "github.com/sirupsen/logrus"
+	"hash/fnv"
 	"math"
 	"reflect"
 )
@@ -31,9 +32,20 @@ func isScalar(t reflect.Type) (*graphql.Scalar, bool) {
 	return nil, false
 }
 
+func hash(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
+}
+
 func getKey(t reflect.Type) string {
 	//pkg := t.PkgPath
 	nk := t.Name()
+
+	if nk == "" {
+		return t.String()
+		//	return fmt.Sprintf("Args%v", hash(t.String()))
+	}
 
 	return fmt.Sprintf("%s", nk)
 }
@@ -267,4 +279,17 @@ func getFieldObject(f graphql.Type) *graphql.Object {
 	}
 	log.Panicf("Cannot get field object type")
 	return nil
+}
+
+func getActualTypeRecursive(t reflect.Type) reflect.Type {
+	switch t.Kind() {
+	case reflect.Ptr:
+		return getActualTypeRecursive(t.Elem())
+	case reflect.Slice:
+		return getActualTypeRecursive(t.Elem())
+
+	case reflect.Struct:
+		return t
+	}
+	return t
 }

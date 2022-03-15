@@ -7,9 +7,14 @@ import (
 type SubscriptionObject struct {
 	Name        string
 	Description string
+	Type        interface{}
 	Resolver    interface{}
 	Args        interface{}
 	Methods     map[string]*SubscriptionMethod
+}
+
+func (s *SubscriptionObject) GetType() interface{} {
+	return s.Type
 }
 
 func (s *SubscriptionObject) FieldSubscription(name string, output interface{}, handler interface{}) {
