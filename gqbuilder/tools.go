@@ -273,3 +273,12 @@ func getActualTypeRecursive(t reflect.Type) reflect.Type {
 	return t
 
 }
+
+func MakeObjectNullable(output graphql.Output) graphql.Output {
+	switch v := output.(type) {
+	case *graphql.NonNull:
+		log.Println(v)
+		return v.OfType
+	}
+	return output
+}
