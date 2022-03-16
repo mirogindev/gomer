@@ -52,7 +52,7 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 	},
 })
 
-var Decimal = graphql.NewScalar(graphql.ScalarConfig{
+var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 	Name:        "Decimal",
 	Description: ``,
 	Serialize: func(value interface{}) interface{} {
