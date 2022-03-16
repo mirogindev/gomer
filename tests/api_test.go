@@ -63,6 +63,29 @@ func TestMutation(t *testing.T) {
 
 }
 
+func TestMutationDecimal(t *testing.T) {
+
+	schema, err := BuildTestSchema()
+
+	if err != nil {
+		panic(err)
+	}
+
+	query := `
+		mutation {
+			ticket_insert (input:{decimal:"0.1112"}) { title }
+		}
+	`
+	params := graphql.Params{Schema: schema, RequestString: query}
+	r := graphql.Do(params)
+	if len(r.Errors) > 0 {
+		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
+	}
+	rJSON, _ := json.Marshal(r)
+	fmt.Printf("%s \n", rJSON)
+
+}
+
 func TestMutationMany(t *testing.T) {
 
 	schema, err := BuildTestSchema()

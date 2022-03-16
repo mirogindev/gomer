@@ -214,7 +214,7 @@ func parseSelection(f ast.Selection, parentType *graphql.Object, p graphql.Resol
 		argsObject := argsMap[parentType.Name()][fieldDef.Name]
 		if argsObject != nil {
 			parsedArgs := getArgumentValues(fieldDef.Args, v.Arguments, p.Info.VariableValues)
-			args = ReflectStruct(reflect.TypeOf(argsObject), parsedArgs).Interface()
+			args = ReflectStructRecursive(reflect.TypeOf(argsObject), parsedArgs).Interface()
 		}
 
 		selections := make([]*Selection, 0)

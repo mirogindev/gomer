@@ -594,7 +594,7 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 				if _, ok := p.Source.(map[string]interface{}); !ok {
 					in[pos-1] = reflect.ValueOf(p.Source)
 				}
-				args := ReflectStruct(argType, p.Args)
+				args := ReflectStructRecursive(argType, p.Args)
 				in[pos] = args
 			}
 
@@ -652,7 +652,7 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 				in[1] = reflect.ValueOf(c)
 				if p.Args != nil {
 					argType, _ := getArgs(fun.Type())
-					args := ReflectStruct(argType, p.Args)
+					args := ReflectStructRecursive(argType, p.Args)
 					in[2] = args
 				}
 
@@ -666,106 +666,172 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 	return fields
 }
 
-func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value {
+func ReflectStructFieldRecursive(fName string, t reflect.Type, param interface{}) reflect.Value {
+	v := reflect.New(t).Elem()
+
+	switch t.Kind() {
+	case reflect.Ptr:
+		log.Tracef("Reflect Ptr FieldName: %s, Type: %s ", fName, t.String())
+		rs := ReflectStructFieldRecursive(fName, t.Elem(), param)
+		ptr := reflect.New(t.Elem())
+		ptr.Elem().Set(rs)
+		v.Set(ptr)
+	case reflect.Struct:
+		log.Tracef("Reflect Struct FieldName: %s Type: %s", fName, t.String())
+
+		if reflect.TypeOf(param) == t {
+			v.Set(reflect.ValueOf(param))
+		} else {
+			rs := ReflectStructRecursive(t, param)
+			v.Set(rs)
+		}
+	case reflect.Slice:
+		log.Tracef("Reflect Struct FieldName: %s Type: %s", fName, t.String())
+		slice := reflect.MakeSlice(t, 0, 5)
+		for _, ai := range param.([]interface{}) {
+			var item reflect.Value
+			if n, ok := ai.(map[string]interface{}); ok {
+				item = ReflectStructFieldRecursive(fName, t.Elem(), n)
+
+			} else {
+				ts := t.Elem().String()
+				log.Traceln(ts)
+				item = ReflectStructFieldRecursive(fName, t.Elem(), ai)
+			}
+
+			slice = reflect.Append(slice, item)
+		}
+		v.Set(slice)
+
+	default:
+		log.Tracef("Reflect Default FieldName: %s Type: %s", fName, t.String())
+		if param != nil {
+			v.Set(reflect.ValueOf(param))
+		}
+	}
+	log.Tracef("Reflect Return Value %s FieldName: %s Type: %s", v.Interface(), fName, t.String())
+	return v
+}
+
+func ReflectStructRecursive(t reflect.Type, param interface{}) reflect.Value {
 	val := reflect.New(t).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if f.Type.Kind() == reflect.Ptr {
-			if f.Type.Elem().Kind() == reflect.Struct {
-				fName := getFieldName(f.Name)
-				if np, ok := params[fName]; ok {
-					pr := reflect.New(f.Type.Elem())
-					pr.Elem().Set(ReflectStruct(f.Type.Elem(), np.(map[string]interface{})))
-					val.Field(i).Set(pr)
-				}
-			} else if f.Type.Elem().Kind() == reflect.Slice {
-				elemSlice := reflect.MakeSlice(reflect.SliceOf(f.Type.Elem().Elem()), 0, 5)
-				fName := getFieldName(f.Name)
-				if f.Type.Elem().Elem().Kind() == reflect.Ptr {
-					if np, ok := params[fName]; ok {
-						pr := reflect.New(f.Type.Elem())
-						for _, v := range np.([]interface{}) {
-							item := ReflectStruct(f.Type.Elem().Elem().Elem(), v.(map[string]interface{}))
-							ipr := reflect.New(f.Type.Elem().Elem().Elem())
-							ipr.Elem().Set(item)
-							elemSlice = reflect.Append(elemSlice, ipr)
-						}
-						pr.Elem().Set(elemSlice)
-						val.Field(i).Set(pr)
-					}
-				} else {
-					if np, ok := params[fName]; ok {
-						pr := reflect.New(f.Type.Elem())
-						for _, v := range np.([]interface{}) {
-							var item reflect.Value
-							if cv, ok := v.(map[string]interface{}); ok {
-								item = ReflectStruct(f.Type.Elem().Elem(), cv)
-							} else {
-								item = reflect.ValueOf(v)
-							}
-
-							elemSlice = reflect.Append(elemSlice, item)
-						}
-						pr.Elem().Set(elemSlice)
-						val.Field(i).Set(pr)
-					}
-				}
-			} else {
-
-				fVal := params[getFieldName(f.Name)]
-				if fVal != nil {
-					pr := reflect.New(f.Type.Elem())
-					pr.Elem().Set(reflectField(f.Name, f.Type.Elem(), params))
-					val.Field(i).Set(pr)
-				}
-
-			}
-		} else if f.Type.Kind() == reflect.Struct {
-			fName := getFieldName(f.Name)
-			if np, ok := params[fName]; ok {
-				val.Field(i).Set(ReflectStruct(f.Type, np.(map[string]interface{})))
-			}
-		} else if f.Type.Kind() == reflect.Slice {
-			elemSlice := reflect.MakeSlice(reflect.SliceOf(f.Type.Elem()), 0, 5)
-			fName := getFieldName(f.Name)
-			if f.Type.Elem().Kind() == reflect.Ptr {
-				if np, ok := params[fName]; ok {
-					for _, v := range np.([]interface{}) {
-						var item reflect.Value
-						if cv, ok := v.(map[string]interface{}); ok {
-							item = ReflectStruct(f.Type.Elem().Elem(), cv)
-						} else {
-							item = reflect.ValueOf(v)
-						}
-						pr := reflect.New(f.Type.Elem().Elem())
-						pr.Elem().Set(item)
-						elemSlice = reflect.Append(elemSlice, pr)
-					}
-					val.Field(i).Set(elemSlice)
-				}
-			} else {
-				if np, ok := params[fName]; ok {
-					for _, v := range np.([]interface{}) {
-						var item reflect.Value
-						if cv, ok := v.(map[string]interface{}); ok {
-							item = ReflectStruct(f.Type.Elem(), cv)
-						} else {
-							item = reflect.ValueOf(v)
-						}
-						elemSlice = reflect.Append(elemSlice, item)
-					}
-					val.Field(i).Set(elemSlice)
-				}
+		fieldName := getFieldName(f.Name)
+		if n, ok := param.(map[string]interface{}); ok {
+			if np, ok := n[fieldName]; ok {
+				rs := ReflectStructFieldRecursive(fieldName, f.Type, np)
+				val.Field(i).Set(rs)
 			}
 		} else {
-			fVal := params[getFieldName(f.Name)]
-			if fVal != nil {
-				val.Field(i).Set(reflectField(f.Name, f.Type, params))
-			}
+			rs := ReflectStructFieldRecursive(fieldName, f.Type, param)
+			val.Field(i).Set(rs)
 		}
 	}
+
 	return val
 }
+
+//func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value {
+//	val := reflect.New(t).Elem()
+//	for i := 0; i < t.NumField(); i++ {
+//		f := t.Field(i)
+//		if f.Type.Kind() == reflect.Ptr {
+//			if f.Type.Elem().Kind() == reflect.Struct {
+//				fName := getFieldName(f.Name)
+//				if np, ok := params[fName]; ok {
+//					ptr := reflect.New(f.Type.Elem())
+//					ptr.Elem().Set(ReflectStruct(f.Type.Elem(), np.(map[string]interface{})))
+//					val.Field(i).Set(ptr)
+//				}
+//			} else if f.Type.Elem().Kind() == reflect.Slice {
+//				elemSlice := reflect.MakeSlice(reflect.SliceOf(f.Type.Elem().Elem()), 0, 5)
+//				fName := getFieldName(f.Name)
+//				if f.Type.Elem().Elem().Kind() == reflect.Ptr {
+//					if np, ok := params[fName]; ok {
+//						pr := reflect.New(f.Type.Elem())
+//						for _, v := range np.([]interface{}) {
+//							item := ReflectStruct(f.Type.Elem().Elem().Elem(), v.(map[string]interface{}))
+//							ipr := reflect.New(f.Type.Elem().Elem().Elem())
+//							ipr.Elem().Set(item)
+//							elemSlice = reflect.Append(elemSlice, ipr)
+//						}
+//						pr.Elem().Set(elemSlice)
+//						val.Field(i).Set(pr)
+//					}
+//				} else {
+//					if np, ok := params[fName]; ok {
+//						pr := reflect.New(f.Type.Elem())
+//						for _, v := range np.([]interface{}) {
+//							var item reflect.Value
+//							if cv, ok := v.(map[string]interface{}); ok {
+//								item = ReflectStruct(f.Type.Elem().Elem(), cv)
+//							} else {
+//								item = reflect.ValueOf(v)
+//							}
+//
+//							elemSlice = reflect.Append(elemSlice, item)
+//						}
+//						pr.Elem().Set(elemSlice)
+//						val.Field(i).Set(pr)
+//					}
+//				}
+//			} else {
+//
+//				fVal := params[getFieldName(f.Name)]
+//				if fVal != nil {
+//					pr := reflect.New(f.Type.Elem())
+//					pr.Elem().Set(reflectField(f.Name, f.Type.Elem(), params))
+//					val.Field(i).Set(pr)
+//				}
+//
+//			}
+//		} else if f.Type.Kind() == reflect.Struct {
+//			fName := getFieldName(f.Name)
+//			if np, ok := params[fName]; ok {
+//				val.Field(i).Set(ReflectStruct(f.Type, np.(map[string]interface{})))
+//			}
+//		} else if f.Type.Kind() == reflect.Slice {
+//			elemSlice := reflect.MakeSlice(reflect.SliceOf(f.Type.Elem()), 0, 5)
+//			fName := getFieldName(f.Name)
+//			if f.Type.Elem().Kind() == reflect.Ptr {
+//				if np, ok := params[fName]; ok {
+//					for _, v := range np.([]interface{}) {
+//						var item reflect.Value
+//						if cv, ok := v.(map[string]interface{}); ok {
+//							item = ReflectStruct(f.Type.Elem().Elem(), cv)
+//						} else {
+//							item = reflect.ValueOf(v)
+//						}
+//						pr := reflect.New(f.Type.Elem().Elem())
+//						pr.Elem().Set(item)
+//						elemSlice = reflect.Append(elemSlice, pr)
+//					}
+//					val.Field(i).Set(elemSlice)
+//				}
+//			} else {
+//				if np, ok := params[fName]; ok {
+//					for _, v := range np.([]interface{}) {
+//						var item reflect.Value
+//						if cv, ok := v.(map[string]interface{}); ok {
+//							item = ReflectStruct(f.Type.Elem(), cv)
+//						} else {
+//							item = reflect.ValueOf(v)
+//						}
+//						elemSlice = reflect.Append(elemSlice, item)
+//					}
+//					val.Field(i).Set(elemSlice)
+//				}
+//			}
+//		} else {
+//			fVal := params[getFieldName(f.Name)]
+//			if fVal != nil {
+//				val.Field(i).Set(reflectField(f.Name, f.Type, params))
+//			}
+//		}
+//	}
+//	return val
+//}
 
 func reflectField(name string, f reflect.Type, params map[string]interface{}) reflect.Value {
 	val := params[getFieldName(name)]
