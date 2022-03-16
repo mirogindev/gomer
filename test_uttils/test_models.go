@@ -1,4 +1,4 @@
-package models
+package test_uttils
 
 import (
 	"github.com/shopspring/decimal"
@@ -16,9 +16,9 @@ type Ticket struct {
 }
 
 type StringFilter struct {
-	Neq  *string `json:"neq" mapstructure:"eq" op:"<>"`
-	Eq   *string `json:"eq" mapstructure:"eq" op:"="`
-	Like *string `json:"like" mapstructure:"like" op:"like"`
+	Neq  *string `json:"neq"`
+	Eq   *string `json:"eq"`
+	Like *string `json:"like"`
 }
 
 type NumberFilter struct {
@@ -31,9 +31,9 @@ type NumberFilter struct {
 }
 
 type IDFilter struct {
-	Neq *int64   `json:"neq" mapstructure:"eq" op:"<>"`
-	Eq  *int64   `json:"eq" mapstructure:"eq" op:"="`
-	In  *[]int64 `json:"in" mapstructure:"in" op:"in"`
+	Neq *int64   `json:"neq"`
+	Eq  *int64   `json:"eq"`
+	In  *[]int64 `json:"in"`
 }
 
 type TicketFilterInput struct {

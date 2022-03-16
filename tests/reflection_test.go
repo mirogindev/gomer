@@ -2,7 +2,7 @@ package tests
 
 import (
 	"github.com/mirogindev/gomer/gqbuilder"
-	"github.com/mirogindev/gomer/models"
+	"github.com/mirogindev/gomer/test_uttils"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -10,12 +10,12 @@ import (
 )
 
 type Args struct {
-	Filter             *models.TicketFilterInput
-	Order              models.TicketOrderInput
-	TagsPointers       []*models.Tag
-	Tags               []models.Tag
-	PointerTags        *[]models.Tag
-	PointerTagsPointer *[]*models.Tag
+	Filter             *test_uttils.TicketFilterInput
+	Order              test_uttils.TicketOrderInput
+	TagsPointers       []*test_uttils.Tag
+	Tags               []test_uttils.Tag
+	PointerTags        *[]test_uttils.Tag
+	PointerTagsPointer *[]*test_uttils.Tag
 	Limit              int
 	Offset             *int
 }

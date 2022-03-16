@@ -5,7 +5,6 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/iancoleman/strcase"
-	"github.com/mirogindev/gomer/models"
 	log "github.com/sirupsen/logrus"
 	"hash/fnv"
 	"math"
@@ -30,21 +29,8 @@ func getKey(t reflect.Type) string {
 	return fmt.Sprintf("%s", nk)
 }
 
-type Args struct {
-	Filter *models.TicketFilterInput
-	Limit  int
-	Offset *int
-}
-
 func getFieldName(name string) string {
 	return strcase.ToSnake(name)
-}
-
-func mergeFields(methodFields, objectFields graphql.Fields) graphql.Fields {
-	for k, v := range methodFields {
-		objectFields[k] = v
-	}
-	return objectFields
 }
 
 func getArgs(fun reflect.Type) (reflect.Type, int) {
