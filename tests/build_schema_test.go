@@ -10,7 +10,7 @@ func TestFindObjectsToBuild(t *testing.T) {
 	builder := test_uttils.CreateTestSchema()
 	builder.SetDefaultScalars()
 	inputs, outputs := builder.FindObjectsToBuild()
-	assert.Equal(t, len(inputs), 12)
+	assert.Equal(t, len(inputs), 13)
 	assert.Equal(t, len(outputs), 6)
 }
 
@@ -19,7 +19,7 @@ func TestBuildObjects(t *testing.T) {
 	builder.SetDefaultScalars()
 	builder.FindObjectsToBuild()
 	builtInputs, builtOutputs := builder.CreateObjects()
-	assert.Equal(t, len(builtInputs), 12)
+	assert.Equal(t, len(builtInputs), 13)
 	assert.Equal(t, len(builtOutputs), 6)
 }
 
@@ -29,7 +29,7 @@ func TestBuildObjectsWithFields(t *testing.T) {
 	builder.FindObjectsToBuild()
 	builder.CreateObjects()
 	builtInputsWithFields, builtOutputsWithFields := builder.CreateObjectsFields()
-	assert.Equal(t, len(builtInputsWithFields), 12)
+	assert.Equal(t, len(builtInputsWithFields), 13)
 	assert.Equal(t, len(builtOutputsWithFields), 6)
 }
 

@@ -30,11 +30,11 @@ var defaultScalarsMap = map[string]*graphql.Scalar{
 	"string":   graphql.String,
 	"int":      graphql.Int,
 	"int64":    Int64Scalar,
+	"Decimal":  DecimalScalar,
 	"float64":  graphql.Float,
 	"float32":  graphql.Float,
 	"datetime": graphql.DateTime,
 	"Time":     graphql.DateTime,
-	"Decimal":  graphql.String,
 	"bool":     graphql.Boolean,
 }
 
@@ -252,13 +252,7 @@ func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldCo
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 
-		io, _ := s.getResolverInputObjectRecursive(f.Type, true)
-		//if v, ok := s.isScalar(aoType); ok {
-		//	io = v
-		//} else {
-		//	key := getKey(ao)
-		//	io = s.builtInputs[key]
-		//}
+		io := s.getResolverInputObjectRecursive(f.Type)
 
 		fields[getFieldName(f.Name)] = &graphql.ArgumentConfig{
 			Type: io,
@@ -364,36 +358,6 @@ func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool)
 	return nil
 }
 
-//func (s *SchemaBuilder) buildObjects() error {
-//	if s.builtOutputs == nil {
-//		s.builtOutputs = make(map[string]graphql.Output)
-//	}
-//	for n, v := range s.objects {
-//		if n == Mutation || n == Query {
-//			continue
-//		}
-//		t := reflect.TypeOf(v.GetType())
-//		key := getKey(t)
-//		fields := graphql.Fields{}
-//		var obj *graphql.Object
-//		if v, ok := s.builtOutputs[key]; ok {
-//			obj = v.(*graphql.Object)
-//		} else {
-//			obj = graphql.NewObject(graphql.ObjectConfig{Name: n, Fields: fields})
-//			s.builtOutputs[key] = obj
-//		}
-//		ts := obj.Fields()
-//		log.Println(ts)
-//		methodFields := s.buildMethods(v)
-//		objectFields := s.buildObjectFields(t, fields)
-//		mergedFields := mergeFields(methodFields, objectFields)
-//		for fn, field := range mergedFields {
-//			fields[fn] = field
-//		}
-//	}
-//	return nil
-//}
-
 func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	if qf, ok := s.objects[Query]; ok {
 		fields := s.buildMethods(qf.(*Object))
@@ -404,21 +368,6 @@ func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	log.Debug("Query object is not found")
 	return nil
 }
-
-//func (s *SchemaBuilder) buildCustomObjectMethods() *graphql.Object {
-//	for n,v := s.customObjects {
-//
-//	}
-//	if qf, ok := s.customObjects; ok {
-//		fields := s.buildMethods(qf.(*Object))
-//		rootQuery := graphql.NewObject(graphql.ObjectConfig{Name: Query, Fields: fields})
-//
-//		return rootQuery
-//	}
-//	log.Error("Query object is not found")
-//	return nil
-//}
-
 func (s *SchemaBuilder) buildMutation() *graphql.Object {
 	if qf, ok := s.objects[Mutation]; ok {
 		fields := s.buildMethods(qf.(*Object))
@@ -612,8 +561,8 @@ func (s *SchemaBuilder) getOutputFieldTypeRecursive(t reflect.Type, required boo
 }
 
 func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Field {
-	out, _ := s.getResolverOutputObject(v.Fn)
-	_, argsType := s.getResolverInputObject(v.Fn)
+	out := s.getResolverOutputObject(v.Fn)
+	args := s.getResolverArgs(v.Fn)
 
 	if s.argsMap == nil {
 		s.argsMap = make(map[string]map[string]interface{})
@@ -622,11 +571,11 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 	if s.argsMap[o.Name] == nil {
 		s.argsMap[o.Name] = make(map[string]interface{})
 	}
-	s.argsMap[o.Name][n] = reflect.New(argsType).Elem().Interface()
+	s.argsMap[o.Name][n] = reflect.New(args).Elem().Interface()
 
 	fun := s.getFunc(v.Fn)
 	return &graphql.Field{
-		Args: s.buildFieldConfigArgument(argsType),
+		Args: s.buildFieldConfigArgument(args),
 		Type: out,
 		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 			if p.Context == nil {
@@ -645,7 +594,7 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 				if _, ok := p.Source.(map[string]interface{}); !ok {
 					in[pos-1] = reflect.ValueOf(p.Source)
 				}
-				args := ReflectStruct(argType, p.Args)
+				args := ReflectStructRecursive(argType, p.Args)
 				in[pos] = args
 			}
 
@@ -683,7 +632,7 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 	fields := graphql.Fields{}
 	for n, v := range so.Methods {
 		out, _ := s.getResolverOutputObjectFromType(reflect.TypeOf(v.Output))
-		_, argsType := s.getResolverInputObject(v.Fn)
+		argsType := s.getResolverArgs(v.Fn)
 
 		fun := s.getFunc(v.Fn)
 		fields[n] = &graphql.Field{
@@ -703,7 +652,7 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 				in[1] = reflect.ValueOf(c)
 				if p.Args != nil {
 					argType, _ := getArgs(fun.Type())
-					args := ReflectStruct(argType, p.Args)
+					args := ReflectStructRecursive(argType, p.Args)
 					in[2] = args
 				}
 
@@ -715,99 +664,6 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 		}
 	}
 	return fields
-}
-
-func ReflectStruct(t reflect.Type, params map[string]interface{}) reflect.Value {
-	val := reflect.New(t).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if f.Type.Kind() == reflect.Ptr {
-			if f.Type.Elem().Kind() == reflect.Struct {
-				fName := getFieldName(f.Name)
-				if np, ok := params[fName]; ok {
-					pr := reflect.New(f.Type.Elem())
-					pr.Elem().Set(ReflectStruct(f.Type.Elem(), np.(map[string]interface{})))
-					val.Field(i).Set(pr)
-				}
-			} else if f.Type.Elem().Kind() == reflect.Slice {
-				elemSlice := reflect.MakeSlice(reflect.SliceOf(f.Type.Elem().Elem()), 0, 5)
-				fName := getFieldName(f.Name)
-				if f.Type.Elem().Elem().Kind() == reflect.Ptr {
-					if np, ok := params[fName]; ok {
-						pr := reflect.New(f.Type.Elem())
-						for _, v := range np.([]interface{}) {
-							item := ReflectStruct(f.Type.Elem().Elem().Elem(), v.(map[string]interface{}))
-							ipr := reflect.New(f.Type.Elem().Elem().Elem())
-							ipr.Elem().Set(item)
-							elemSlice = reflect.Append(elemSlice, ipr)
-						}
-						pr.Elem().Set(elemSlice)
-						val.Field(i).Set(pr)
-					}
-				} else {
-					if np, ok := params[fName]; ok {
-						pr := reflect.New(f.Type.Elem())
-						for _, v := range np.([]interface{}) {
-							item := ReflectStruct(f.Type.Elem().Elem(), v.(map[string]interface{}))
-							elemSlice = reflect.Append(elemSlice, item)
-						}
-						pr.Elem().Set(elemSlice)
-						val.Field(i).Set(pr)
-					}
-				}
-			} else {
-
-				fVal := params[getFieldName(f.Name)]
-				if fVal != nil {
-					pr := reflect.New(f.Type.Elem())
-					pr.Elem().Set(reflectField(f.Name, f.Type.Elem(), params))
-					val.Field(i).Set(pr)
-				}
-
-			}
-		} else if f.Type.Kind() == reflect.Struct {
-			fName := getFieldName(f.Name)
-			if np, ok := params[fName]; ok {
-				val.Field(i).Set(ReflectStruct(f.Type, np.(map[string]interface{})))
-			}
-		} else if f.Type.Kind() == reflect.Slice {
-			elemSlice := reflect.MakeSlice(reflect.SliceOf(f.Type.Elem()), 0, 5)
-			fName := getFieldName(f.Name)
-			if f.Type.Elem().Kind() == reflect.Ptr {
-				if np, ok := params[fName]; ok {
-					for _, v := range np.([]interface{}) {
-						item := ReflectStruct(f.Type.Elem().Elem(), v.(map[string]interface{}))
-						pr := reflect.New(f.Type.Elem().Elem())
-						pr.Elem().Set(item)
-						elemSlice = reflect.Append(elemSlice, pr)
-					}
-					val.Field(i).Set(elemSlice)
-				}
-			} else {
-				if np, ok := params[fName]; ok {
-					for _, v := range np.([]interface{}) {
-						item := ReflectStruct(f.Type.Elem(), v.(map[string]interface{}))
-						elemSlice = reflect.Append(elemSlice, item)
-					}
-					val.Field(i).Set(elemSlice)
-				}
-			}
-		} else {
-			fVal := params[getFieldName(f.Name)]
-			if fVal != nil {
-				val.Field(i).Set(reflectField(f.Name, f.Type, params))
-			}
-		}
-	}
-	return val
-}
-
-func reflectField(name string, f reflect.Type, params map[string]interface{}) reflect.Value {
-	val := params[getFieldName(name)]
-	if val == nil {
-		return reflect.New(f).Elem()
-	}
-	return reflect.ValueOf(val)
 }
 
 func (s *SchemaBuilder) getResolverOutput(fn interface{}) (reflect.Type, graphql.Output) {
@@ -868,61 +724,40 @@ func (s *SchemaBuilder) findResolverArgsObject(fn interface{}) reflect.Type {
 	return getActualTypeRecursive(args)
 }
 
-func (s *SchemaBuilder) getResolverInputObject(fn interface{}) (graphql.Input, reflect.Type) {
+func (s *SchemaBuilder) getResolverArgs(fn interface{}) reflect.Type {
 	a := s.findResolverArgsObject(fn)
-	return s.builtInputs[getKey(a)], a
+	return a
 }
 
-func (s *SchemaBuilder) getResolverOutputObject(fn interface{}) (graphql.Output, reflect.Type) {
+func (s *SchemaBuilder) getResolverOutputObject(fn interface{}) graphql.Output {
 	rf := reflect.TypeOf(fn).Out(0)
-	return s.getResolverOutputObjectRecursive(rf, true)
+	return s.getResolverOutputObjectRecursive(rf)
 }
 
-func (s *SchemaBuilder) getResolverOutputObjectRecursive(t reflect.Type, required bool) (graphql.Output, reflect.Type) {
+func (s *SchemaBuilder) getResolverOutputObjectRecursive(t reflect.Type) graphql.Output {
 	switch t.Kind() {
 	case reflect.Ptr:
-		obj, rType := s.getResolverOutputObjectRecursive(t.Elem(), false)
-		return obj, rType
+		return MakeObjectNullable(s.getResolverOutputObjectRecursive(t.Elem()))
 	case reflect.Slice:
-		obj, rType := s.getResolverOutputObjectRecursive(t.Elem(), required)
-		if required {
-			return graphql.NewNonNull(graphql.NewList(obj)), rType
-		}
-
-		return graphql.NewList(obj), rType
+		return graphql.NewNonNull(graphql.NewList(s.getResolverOutputObjectRecursive(t.Elem())))
 	case reflect.Struct:
-		if required {
-			return graphql.NewNonNull(s.builtOutputs[getKey(t)]), t
-		}
-		return s.builtOutputs[getKey(t)], t
+		return graphql.NewNonNull(s.builtOutputs[getKey(t)])
 	}
 
 	panic("Invalid output type")
 }
 
-func (s *SchemaBuilder) getResolverInputObjectRecursive(t reflect.Type, required bool) (graphql.Input, reflect.Type) {
+func (s *SchemaBuilder) getResolverInputObjectRecursive(t reflect.Type) graphql.Input {
 	switch t.Kind() {
 	case reflect.Ptr:
-		obj, rType := s.getResolverInputObjectRecursive(t.Elem(), false)
-		return obj, rType
+		return MakeObjectNullable(s.getResolverInputObjectRecursive(t.Elem()))
 	case reflect.Slice:
-		obj, rType := s.getResolverInputObjectRecursive(t.Elem(), required)
-		if required {
-			return graphql.NewNonNull(graphql.NewList(obj)), rType
-		}
-
-		return graphql.NewList(obj), rType
+		return graphql.NewNonNull(graphql.NewList(s.getResolverInputObjectRecursive(t.Elem())))
 	case reflect.Struct:
-		if required {
-			return graphql.NewNonNull(s.builtInputs[getKey(t)]), t
-		}
-		return s.builtInputs[getKey(t)], t
+		return graphql.NewNonNull(s.builtInputs[getKey(t)])
 	}
 	if sc, ok := s.isScalar(t); ok {
-		if required {
-			return graphql.NewNonNull(sc), t
-		}
-		return sc, t
+		return graphql.NewNonNull(sc)
 	}
 
 	panic("Invalid input type")

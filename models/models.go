@@ -58,9 +58,18 @@ type TagOrderInput struct {
 	Number string
 }
 
+type ItemInterface struct {
+	Title   string
+	Number  *int
+	Numbers []*int64
+}
+
 type TicketInsertInput struct {
-	Title  string
-	Number *int
+	Title           *string
+	Number          *int
+	Numbers         []*int64
+	NumbersRequired []int64
+	Decimal         *decimal.Decimal
 }
 
 type TicketUpdateInput struct {

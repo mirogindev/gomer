@@ -214,7 +214,7 @@ func parseSelection(f ast.Selection, parentType *graphql.Object, p graphql.Resol
 		argsObject := argsMap[parentType.Name()][fieldDef.Name]
 		if argsObject != nil {
 			parsedArgs := getArgumentValues(fieldDef.Args, v.Arguments, p.Info.VariableValues)
-			args = ReflectStruct(reflect.TypeOf(argsObject), parsedArgs).Interface()
+			args = ReflectStructRecursive(reflect.TypeOf(argsObject), parsedArgs).Interface()
 		}
 
 		selections := make([]*Selection, 0)
@@ -235,6 +235,72 @@ func parseSelection(f ast.Selection, parentType *graphql.Object, p graphql.Resol
 		log.Panicf("Invalid type %s", v)
 	}
 	return nil
+}
+
+func ReflectStructFieldRecursive(fName string, t reflect.Type, param interface{}) reflect.Value {
+	v := reflect.New(t).Elem()
+
+	switch t.Kind() {
+	case reflect.Ptr:
+		log.Tracef("Reflect Ptr FieldName: %s, Type: %s ", fName, t.String())
+		rs := ReflectStructFieldRecursive(fName, t.Elem(), param)
+		ptr := reflect.New(t.Elem())
+		ptr.Elem().Set(rs)
+		v.Set(ptr)
+	case reflect.Struct:
+		log.Tracef("Reflect Struct FieldName: %s Type: %s", fName, t.String())
+
+		if reflect.TypeOf(param) == t {
+			v.Set(reflect.ValueOf(param))
+		} else {
+			rs := ReflectStructRecursive(t, param)
+			v.Set(rs)
+		}
+	case reflect.Slice:
+		log.Tracef("Reflect Struct FieldName: %s Type: %s", fName, t.String())
+		slice := reflect.MakeSlice(t, 0, 5)
+		for _, ai := range param.([]interface{}) {
+			var item reflect.Value
+			if n, ok := ai.(map[string]interface{}); ok {
+				item = ReflectStructFieldRecursive(fName, t.Elem(), n)
+
+			} else {
+				ts := t.Elem().String()
+				log.Traceln(ts)
+				item = ReflectStructFieldRecursive(fName, t.Elem(), ai)
+			}
+
+			slice = reflect.Append(slice, item)
+		}
+		v.Set(slice)
+
+	default:
+		log.Tracef("Reflect Default FieldName: %s Type: %s", fName, t.String())
+		if param != nil {
+			v.Set(reflect.ValueOf(param))
+		}
+	}
+	log.Tracef("Reflect Return Value %s FieldName: %s Type: %s", v.Interface(), fName, t.String())
+	return v
+}
+
+func ReflectStructRecursive(t reflect.Type, param interface{}) reflect.Value {
+	val := reflect.New(t).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		fieldName := getFieldName(f.Name)
+		if n, ok := param.(map[string]interface{}); ok {
+			if np, ok := n[fieldName]; ok {
+				rs := ReflectStructFieldRecursive(fieldName, f.Type, np)
+				val.Field(i).Set(rs)
+			}
+		} else {
+			rs := ReflectStructFieldRecursive(fieldName, f.Type, param)
+			val.Field(i).Set(rs)
+		}
+	}
+
+	return val
 }
 
 func ParseSelections(p graphql.ResolveParams, argsMap map[string]map[string]interface{}) []*Selection {
@@ -272,4 +338,12 @@ func getActualTypeRecursive(t reflect.Type) reflect.Type {
 	}
 	return t
 
+}
+
+func MakeObjectNullable(output graphql.Output) graphql.Output {
+	switch v := output.(type) {
+	case *graphql.NonNull:
+		return v.OfType
+	}
+	return output
 }
