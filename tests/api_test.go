@@ -17,6 +17,31 @@ func BuildTestSchema() (graphql.Schema, error) {
 	return schema, err
 }
 
+//func TestRunWeb(t *testing.T) {
+//	schema, err := BuildTestSchema()
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	if err != nil {
+//		log.Fatalf("failed to create new schema, error: %v", err)
+//	}
+//
+//	h := handler.New(&handler.Config{
+//		Schema:     &schema,
+//		Pretty:     true,
+//		GraphiQL:   false,
+//		Playground: true,
+//	})
+//
+//	sh := gqbuilder.GetSubscriptionHandler(schema)
+//
+//	http.Handle("/graphql", h)
+//
+//	http.HandleFunc("/subscriptions", sh.SubscriptionsHandlerFunc)
+//	log.Fatal(http.ListenAndServe(":8089", nil))
+//}
+
 func Test1(t *testing.T) {
 
 	schema, err := BuildTestSchema()

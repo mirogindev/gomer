@@ -12,7 +12,7 @@ import (
 func CreateTestSchema() *gqbuilder.SchemaBuilder {
 	builder := gqbuilder.GetBuilder()
 	builder.RegisterScalar("int64", gqbuilder.Int64Scalar)
-	builder.RegisterScalar("Decimal", gqbuilder.Decimal)
+	builder.RegisterScalar("Decimal", gqbuilder.DecimalScalar)
 
 	ticket := builder.Object("Ticket", models.Ticket{})
 
