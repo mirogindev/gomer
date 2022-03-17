@@ -3,7 +3,6 @@ package tests
 import (
 	"github.com/mirogindev/gomer/gqbuilder"
 	"github.com/mirogindev/gomer/test_uttils"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -21,7 +20,7 @@ type Args struct {
 }
 
 func TestSimpleFieldsReflection(t *testing.T) {
-	log.SetLevel(log.TraceLevel)
+	//log.SetLevel(log.TraceLevel)
 	params := make(map[string]interface{})
 	offset := 10
 	limit := 15
@@ -184,7 +183,7 @@ func TestFieldReflectionWithNestedPointerListWithStructs(t *testing.T) {
 }
 
 func TestFieldReflectionWithNestedPointerListWithPointerStructs(t *testing.T) {
-	log.SetLevel(log.TraceLevel)
+	//log.SetLevel(log.TraceLevel)
 	params := make(map[string]interface{})
 	tags := make([]interface{}, 0)
 	title1 := "testTitle1"

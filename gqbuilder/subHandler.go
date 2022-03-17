@@ -122,7 +122,7 @@ func (sh *SubscriptionHandler) unsubscribe(subscriptionCancelFn context.CancelFu
 		subscriber.Conn.Close()
 		subscribers.Delete(subscriber.UUID)
 	}
-	log.Debug("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
+	log.Debugf("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
 }
 
 func (sh *SubscriptionHandler) subscribe(ctx context.Context, subscriptionCancelFn context.CancelFunc, conn *websocket.Conn, msg ConnectionACKMessage) *Subscriber {
@@ -134,7 +134,7 @@ func (sh *SubscriptionHandler) subscribe(ctx context.Context, subscriptionCancel
 	}
 	subscribers.Store(subscriber.UUID, &subscriber)
 
-	log.Debug("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
+	log.Debugf("[SubscriptionsHandler] subscribers size: %+v", sh.subscribersSize())
 
 	sendMessage := func(r *graphql.Result) error {
 		message, err := json.Marshal(map[string]interface{}{
