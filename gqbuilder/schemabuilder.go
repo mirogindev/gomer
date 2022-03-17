@@ -601,7 +601,7 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 
 			in[0] = reflect.ValueOf(p.Context)
 
-			if p.Args != nil {
+			if p.Args != nil && len(p.Args) > 0 {
 				argType, pos, _ := getArgs(fun.Type())
 				if _, ok := p.Source.(map[string]interface{}); !ok {
 					in[pos-1] = reflect.ValueOf(p.Source)

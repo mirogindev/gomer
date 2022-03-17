@@ -41,7 +41,7 @@ func getArgs(fun reflect.Type) (reflect.Type, int, bool) {
 		pos := 1
 		return fun.In(pos), pos, true
 	}
-	return reflect.TypeOf(nil), 0, false
+	return fun.In(0), 0, false
 }
 
 func getArgumentValues(
