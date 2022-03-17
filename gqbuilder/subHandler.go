@@ -24,7 +24,7 @@ func GetSubscriptionHandler(schema graphql.Schema) *SubscriptionHandler {
 func (sh *SubscriptionHandler) SubscriptionsHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Error("failed to do websocket upgrade: %v", err)
+		log.Errorf("failed to do websocket upgrade: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -33,13 +33,13 @@ func (sh *SubscriptionHandler) SubscriptionsHandlerFunc(w http.ResponseWriter, r
 		"type": "connection_ack",
 	})
 	if err != nil {
-		log.Error("failed to marshal ws connection ack: %v", err)
+		log.Errorf("failed to marshal ws connection ack: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, connectionACK); err != nil {
-		log.Error("failed to write to ws connection: %v", err)
+		log.Errorf("failed to write to ws connection: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -77,13 +77,13 @@ func (sh *SubscriptionHandler) handleSubscription(conn *websocket.Conn) {
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
-			log.Error("failed to read websocket message: %v", err)
+			log.Errorf("failed to read websocket message: %v", err)
 			return
 		}
 
 		var msg ConnectionACKMessage
 		if err := json.Unmarshal(p, &msg); err != nil {
-			log.Error("failed to unmarshal websocket message: %v", err)
+			log.Errorf("failed to unmarshal websocket message: %v", err)
 			continue
 		}
 
