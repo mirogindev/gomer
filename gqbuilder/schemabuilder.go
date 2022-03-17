@@ -670,7 +670,7 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 					in[0] = reflect.ValueOf(p.Context)
 				}
 				in[1] = reflect.ValueOf(c)
-				if p.Args != nil {
+				if p.Args != nil && len(p.Args) > 0 {
 					argType, _, _ := getArgs(fun.Type())
 					args := ReflectStructRecursive(argType, p.Args)
 					in[2] = args
