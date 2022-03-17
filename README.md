@@ -28,7 +28,6 @@ and a `FieldResolver` method which returns the array of `topic`
 
 		return topics, nil
 	})
-}
 ```
 
 This is an example which defines a schema with single `topic`  mutation field
@@ -45,7 +44,6 @@ and a `FieldResolver` method which returns the created `topic`
 	}
 		return topic, nil
 	})
-}
 ```
 
 This is an example which defines a schema with single `new_topics`  subscription field
@@ -83,8 +81,6 @@ and a `FieldSubscription` method which returns the new `topics`
 		}
 
 	})
-}
-
 ```
 
 This is the full working example
