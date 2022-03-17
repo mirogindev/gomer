@@ -398,6 +398,10 @@ func (s *SchemaBuilder) findMethodObjectsRecursive(gm GomerObject) {
 			s.processObject(ro, OUTPUT_TYPE)
 
 			ao := s.findResolverArgsObject(v.Fn)
+			if ao == nil {
+				continue
+			}
+
 			s.processObject(ao, INPUT_TYPE)
 		}
 	}
@@ -409,6 +413,10 @@ func (s *SchemaBuilder) findMethodObjectsRecursive(gm GomerObject) {
 			s.processObject(ro, OUTPUT_TYPE)
 
 			ao := s.findResolverArgsObject(v.Fn)
+
+			if ao == nil {
+				continue
+			}
 			s.processObject(ao, INPUT_TYPE)
 		}
 	}
@@ -563,19 +571,23 @@ func (s *SchemaBuilder) getOutputFieldTypeRecursive(t reflect.Type, required boo
 func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Field {
 	out := s.getResolverOutputObject(v.Fn)
 	args := s.getResolverArgs(v.Fn)
+	var fieldConfigArgument graphql.FieldConfigArgument
 
-	if s.argsMap == nil {
-		s.argsMap = make(map[string]map[string]interface{})
-	}
+	if args != nil {
+		if s.argsMap == nil {
+			s.argsMap = make(map[string]map[string]interface{})
+		}
 
-	if s.argsMap[o.Name] == nil {
-		s.argsMap[o.Name] = make(map[string]interface{})
+		if s.argsMap[o.Name] == nil {
+			s.argsMap[o.Name] = make(map[string]interface{})
+		}
+		s.argsMap[o.Name][n] = reflect.New(args).Elem().Interface()
+		fieldConfigArgument = s.buildFieldConfigArgument(args)
 	}
-	s.argsMap[o.Name][n] = reflect.New(args).Elem().Interface()
 
 	fun := s.getFunc(v.Fn)
 	return &graphql.Field{
-		Args: s.buildFieldConfigArgument(args),
+		Args: fieldConfigArgument,
 		Type: out,
 		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 			if p.Context == nil {
@@ -590,7 +602,7 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 			in[0] = reflect.ValueOf(p.Context)
 
 			if p.Args != nil {
-				argType, pos := getArgs(fun.Type())
+				argType, pos, _ := getArgs(fun.Type())
 				if _, ok := p.Source.(map[string]interface{}); !ok {
 					in[pos-1] = reflect.ValueOf(p.Source)
 				}
@@ -651,7 +663,7 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 				}
 				in[1] = reflect.ValueOf(c)
 				if p.Args != nil {
-					argType, _ := getArgs(fun.Type())
+					argType, _, _ := getArgs(fun.Type())
 					args := ReflectStructRecursive(argType, p.Args)
 					in[2] = args
 				}
@@ -720,7 +732,11 @@ func (s *SchemaBuilder) findDependentObjects(t reflect.Type, objType string) {
 }
 
 func (s *SchemaBuilder) findResolverArgsObject(fn interface{}) reflect.Type {
-	args, _ := getArgs(reflect.TypeOf(fn))
+	args, _, exist := getArgs(reflect.TypeOf(fn))
+	if !exist {
+		return nil
+	}
+
 	return getActualTypeRecursive(args)
 }
 

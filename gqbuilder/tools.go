@@ -33,14 +33,15 @@ func getFieldName(name string) string {
 	return strcase.ToSnake(name)
 }
 
-func getArgs(fun reflect.Type) (reflect.Type, int) {
+func getArgs(fun reflect.Type) (reflect.Type, int, bool) {
 	if fun.NumIn() == 3 {
 		pos := 2
-		return fun.In(pos), pos
-	} else {
+		return fun.In(pos), pos, true
+	} else if fun.NumIn() == 2 {
 		pos := 1
-		return fun.In(pos), pos
+		return fun.In(pos), pos, true
 	}
+	return reflect.TypeOf(nil), 0, false
 }
 
 func getArgumentValues(

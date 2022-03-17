@@ -82,6 +82,19 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 		return tickets, nil
 	})
 
+	queryObj.FieldResolver("ticket_without_arguments", func(ctx context.Context) ([]*Ticket, error) {
+		var tickets []*Ticket
+		var tags []*Tag
+		tags = append(tags, &Tag{Title: "Tag1", ID: "1"})
+		tags = append(tags, &Tag{Title: "Tag2", ID: "2"})
+		tags = append(tags, &Tag{Title: "Tag3", ID: "3"})
+
+		tickets = append(tickets, &Ticket{Title: "Ticket1", ID: "1", Tags: tags})
+		tickets = append(tickets, &Ticket{Title: "Ticket2", ID: "2", Tags: tags})
+		tickets = append(tickets, &Ticket{Title: "Ticket3", ID: "3", Tags: tags})
+		return tickets, nil
+	})
+
 	subObj := builder.Subscription()
 
 	subObj.FieldSubscription("test_sub", Ticket{}, func(ctx context.Context, c chan interface{}, args struct {
