@@ -1,6 +1,6 @@
 # Gomer
-Gomer is a Go framework for easy generation GraphQL API based on reflection
-and graphql-go library
+Gomer is a Go framework for easy generation GraphQL API based on the reflection
+and  the graphql-go library
 
 Supports: queries, mutations and realtime subscriptions.
 
