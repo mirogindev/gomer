@@ -1,5 +1,5 @@
 name: Go
-
+runs-on: self-hosted
 on:
   push:
     branches: [ master ]
