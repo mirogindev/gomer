@@ -82,7 +82,7 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 		return tickets, nil
 	})
 
-	queryObj.FieldResolver("ticket_without_arguments", func(ctx context.Context) ([]*Ticket, error) {
+	queryObj.FieldResolver("ticket_without_args", func(ctx context.Context) ([]*Ticket, error) {
 		var tickets []*Ticket
 		var tags []*Tag
 		tags = append(tags, &Tag{Title: "Tag1", ID: "1"})
@@ -96,6 +96,32 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 	})
 
 	subObj := builder.Subscription()
+
+	subObj.FieldSubscription("test_sub_without_args", Ticket{}, func(ctx context.Context, c chan interface{}) {
+		var i int
+
+		for {
+			i++
+
+			ticket := Ticket{ID: fmt.Sprintf("%d", i), Number: i}
+
+			select {
+			case <-ctx.Done():
+				log.Println("[RootSubscription] [Subscribe] subscription canceled")
+				close(c)
+				return
+			default:
+				c <- ticket
+			}
+
+			time.Sleep(200 * time.Millisecond)
+
+			if i == 10 {
+				close(c)
+				return
+			}
+		}
+	})
 
 	subObj.FieldSubscription("test_sub", Ticket{}, func(ctx context.Context, c chan interface{}, args struct {
 		Filter *TicketFilterInput

@@ -428,14 +428,8 @@ func (s *SchemaBuilder) processObject(t reflect.Type, objType string) {
 	}
 	key := getKey(t)
 	if objType == INPUT_TYPE {
-		//if _, ok := s.inputsToBuild[key]; ok {
-		//	return
-		//}
 		s.inputsToBuild[key] = t
 	} else if objType == OUTPUT_TYPE {
-		//if _, ok := s.outputsToBuild[key]; ok {
-		//	return
-		//}
 		s.outputsToBuild[key] = t
 	} else {
 		panic(fmt.Sprintf("Invalid object type %s", objType))
@@ -644,11 +638,25 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 	fields := graphql.Fields{}
 	for n, v := range so.Methods {
 		out, _ := s.getResolverOutputObjectFromType(reflect.TypeOf(v.Output))
-		argsType := s.getResolverArgs(v.Fn)
+		args := s.getResolverArgs(v.Fn)
+
+		var fieldConfigArgument graphql.FieldConfigArgument
+
+		if args != nil {
+			if s.argsMap == nil {
+				s.argsMap = make(map[string]map[string]interface{})
+			}
+
+			if s.argsMap[v.Name] == nil {
+				s.argsMap[v.Name] = make(map[string]interface{})
+			}
+			s.argsMap[v.Name][n] = reflect.New(args).Elem().Interface()
+			fieldConfigArgument = s.buildFieldConfigArgument(args)
+		}
 
 		fun := s.getFunc(v.Fn)
 		fields[n] = &graphql.Field{
-			Args: s.buildFieldConfigArgument(argsType),
+			Args: fieldConfigArgument,
 			Type: out,
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				return p.Source, nil

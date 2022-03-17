@@ -39,9 +39,14 @@ func getArgs(fun reflect.Type) (reflect.Type, int, bool) {
 		return fun.In(pos), pos, true
 	} else if fun.NumIn() == 2 {
 		pos := 1
+		t := fun.In(pos)
+		if t.Kind() == reflect.Chan {
+			return nil, 0, false
+		}
+
 		return fun.In(pos), pos, true
 	}
-	return fun.In(0), 0, false
+	return nil, 0, false
 }
 
 func getArgumentValues(

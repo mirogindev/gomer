@@ -52,7 +52,7 @@ func TestQuery(t *testing.T) {
 
 	query := `
 		{
-			ticket_without_arguments { title }
+			ticket_without_args { title }
 		}
 	`
 	params := graphql.Params{Schema: schema, RequestString: query}
