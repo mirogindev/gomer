@@ -1,4 +1,7 @@
 # Gomer
+![go version](https://img.shields.io/github/go-mod/go-version/mirogindev/gomer)
+![go workflow](https://github.com/mirogindev/gomer/actions/workflows/go.yml/badge.svg)
+
 Gomer is a Go framework for easy generation GraphQL API based on the reflection
 and  the graphql-go library
 
