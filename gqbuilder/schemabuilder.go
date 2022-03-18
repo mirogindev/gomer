@@ -597,11 +597,11 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 
 			argType, pos, _ := getArgs(fun.Type())
 
-			if p.Args != nil && len(p.Args) > 0 {
+			if _, ok := p.Source.(map[string]interface{}); !ok {
+				in[pos-1] = reflect.ValueOf(p.Source)
+			}
 
-				if _, ok := p.Source.(map[string]interface{}); !ok {
-					in[pos-1] = reflect.ValueOf(p.Source)
-				}
+			if p.Args != nil && len(p.Args) > 0 {
 				args := ReflectStructRecursive(argType, p.Args)
 				in[pos] = args
 			} else {
