@@ -595,13 +595,19 @@ func (s *SchemaBuilder) buildMethod(n string, v *Method, o *Object) *graphql.Fie
 
 			in[0] = reflect.ValueOf(p.Context)
 
+			argType, pos, _ := getArgs(fun.Type())
+
 			if p.Args != nil && len(p.Args) > 0 {
-				argType, pos, _ := getArgs(fun.Type())
+
 				if _, ok := p.Source.(map[string]interface{}); !ok {
 					in[pos-1] = reflect.ValueOf(p.Source)
 				}
 				args := ReflectStructRecursive(argType, p.Args)
 				in[pos] = args
+			} else {
+				if argType != nil {
+					in[pos] = reflect.New(argType).Elem()
+				}
 			}
 
 			result := fun.Call(in)
