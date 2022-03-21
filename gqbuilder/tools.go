@@ -250,22 +250,25 @@ func ReflectStructFieldRecursive(fName string, t reflect.Type, param interface{}
 		}
 	case reflect.Slice:
 		log.Tracef("Reflect Struct FieldName: %s Type: %s", fName, t.String())
-		slice := reflect.MakeSlice(t, 0, 5)
-		for _, ai := range param.([]interface{}) {
-			var item reflect.Value
-			if n, ok := ai.(map[string]interface{}); ok {
-				item = ReflectStructFieldRecursive(fName, t.Elem(), n)
+		if reflect.TypeOf(param) == t {
+			v.Set(reflect.ValueOf(param))
+		} else {
+			slice := reflect.MakeSlice(t, 0, 5)
+			for _, ai := range param.([]interface{}) {
+				var item reflect.Value
+				if n, ok := ai.(map[string]interface{}); ok {
+					item = ReflectStructFieldRecursive(fName, t.Elem(), n)
 
-			} else {
-				ts := t.Elem().String()
-				log.Traceln(ts)
-				item = ReflectStructFieldRecursive(fName, t.Elem(), ai)
+				} else {
+					ts := t.Elem().String()
+					log.Traceln(ts)
+					item = ReflectStructFieldRecursive(fName, t.Elem(), ai)
+				}
+
+				slice = reflect.Append(slice, item)
 			}
-
-			slice = reflect.Append(slice, item)
+			v.Set(slice)
 		}
-		v.Set(slice)
-
 	default:
 		log.Tracef("Reflect Default FieldName: %s Type: %s", fName, t.String())
 		if param != nil {
@@ -318,19 +321,21 @@ func getFieldObject(f graphql.Type) *graphql.Object {
 	return nil
 }
 
-func getActualTypeRecursive(t reflect.Type) reflect.Type {
-	switch t.Kind() {
-	case reflect.Ptr:
-		return getActualTypeRecursive(t.Elem())
-	case reflect.Slice:
-		return getActualTypeRecursive(t.Elem())
-
-	case reflect.Struct:
-		return t
-	}
-	return t
-
-}
+//func getActualTypeRecursive(t reflect.Type) reflect.Type {
+//	switch t.Kind() {
+//	case reflect.Ptr:
+//		log.Traceln("Ptr %s", t.String())
+//		return getActualTypeRecursive(t.Elem())
+//	case reflect.Slice:
+//		log.Tracef("Slice %s", t.String())
+//		return getActualTypeRecursive(t.Elem())
+//
+//	case reflect.Struct:
+//		return t
+//	}
+//	return t
+//
+//}
 
 func MakeObjectNullable(output graphql.Output) graphql.Output {
 	switch v := output.(type) {

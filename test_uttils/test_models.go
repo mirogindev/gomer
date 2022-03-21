@@ -2,6 +2,7 @@ package test_uttils
 
 import (
 	"github.com/shopspring/decimal"
+	"gorm.io/datatypes"
 	"time"
 )
 
@@ -13,6 +14,7 @@ type Ticket struct {
 	Decimal    decimal.Decimal `json:"decimal"`
 	Categories []*Category     `json:"categories"`
 	Tags       []*Tag          `json:"tags"`
+	Params     datatypes.JSON  `json:"params"`
 }
 
 type StringFilter struct {
@@ -69,6 +71,7 @@ type TicketInsertInput struct {
 	Number          *int
 	Numbers         []*int64
 	NumbersRequired []int64
+	Params          *datatypes.JSON
 	Decimal         *decimal.Decimal
 }
 

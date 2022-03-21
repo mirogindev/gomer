@@ -203,49 +203,6 @@ func (s *SchemaBuilder) checkSubscriptions(name string) {
 	}
 }
 
-func (s *SchemaBuilder) buildObjectFields(t reflect.Type, fields graphql.Fields) graphql.Fields {
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		n, fo := s.buildField(f)
-		fields[n] = fo
-
-	}
-	return fields
-}
-
-func (s *SchemaBuilder) buildObject(key string, t reflect.Type) graphql.Output {
-	fields := graphql.Fields{}
-	obj := graphql.NewObject(graphql.ObjectConfig{
-		Name:   t.Name(),
-		Fields: fields,
-	})
-	s.builtOutputs[key] = obj
-
-	s.buildObjectFields(t, fields)
-
-	return obj
-}
-
-func (s *SchemaBuilder) buildInputObject(key string, t reflect.Type) graphql.Input {
-	fields := graphql.InputObjectConfigFieldMap{}
-
-	obj := graphql.NewInputObject(graphql.InputObjectConfig{
-		Name:   t.Name(),
-		Fields: fields,
-	})
-
-	s.builtInputs[key] = obj
-
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		n, fo := s.buildInputField(f)
-		fields[n] = fo
-		obj.AddFieldConfig(n, fo)
-	}
-
-	return obj
-}
-
 func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldConfigArgument {
 	fields := graphql.FieldConfigArgument{}
 
@@ -262,102 +219,6 @@ func (s *SchemaBuilder) buildFieldConfigArgument(t reflect.Type) graphql.FieldCo
 	return fields
 }
 
-func (s *SchemaBuilder) buildArgumentConfig(reflectedType reflect.StructField) (string, *graphql.ArgumentConfig) {
-	n := getFieldName(reflectedType.Name)
-	gqType := s.getGqInput(reflectedType.Type, true)
-
-	field := graphql.ArgumentConfig{
-		Type: gqType,
-	}
-	return n, &field
-}
-
-func (s *SchemaBuilder) buildInputField(reflectedType reflect.StructField) (string, *graphql.InputObjectFieldConfig) {
-	n := getFieldName(reflectedType.Name)
-	gqType := s.getGqInput(reflectedType.Type, true)
-
-	field := graphql.InputObjectFieldConfig{
-		Type: gqType,
-	}
-	return n, &field
-}
-
-func (s *SchemaBuilder) buildField(reflectedType reflect.StructField) (string, *graphql.Field) {
-	n := getFieldName(reflectedType.Name)
-	gqType := s.getGqOutput(reflectedType.Type, true)
-
-	field := &graphql.Field{
-		Name: n,
-		Type: gqType,
-	}
-	return n, field
-}
-
-func (s *SchemaBuilder) getGqInput(reflectedType reflect.Type, isRequired bool) graphql.Input {
-	if s.builtInputs == nil {
-		s.builtInputs = make(map[string]graphql.Input)
-	}
-
-	if reflectedType.Kind() == reflect.Ptr {
-		return s.getGqInput(reflectedType.Elem(), false)
-	} else if reflectedType.Kind() == reflect.Slice {
-		obj := graphql.NewList(s.getGqInput(reflectedType.Elem(), false))
-		if isRequired {
-			return graphql.NewNonNull(obj)
-		}
-		return obj
-
-	} else if v, ok := s.isScalar(reflectedType); ok {
-		if isRequired {
-			return graphql.NewNonNull(v)
-		}
-		return v
-	} else if reflectedType.Kind() == reflect.Struct {
-		key := getKey(reflectedType)
-		if v, ok := s.builtInputs[key]; ok {
-			return v
-		}
-
-		bo := s.buildInputObject(key, reflectedType)
-
-		return bo
-	}
-	return nil
-}
-
-func (s *SchemaBuilder) getGqOutput(reflectedType reflect.Type, isRequired bool) graphql.Output {
-
-	if reflectedType.Kind() == reflect.Ptr {
-
-		return s.getGqOutput(reflectedType.Elem(), false)
-	} else if reflectedType.Kind() == reflect.Chan {
-		return s.getGqOutput(reflectedType.Elem(), true)
-	} else if reflectedType.Kind() == reflect.Slice {
-		obj := graphql.NewList(s.getGqOutput(reflectedType.Elem(), false))
-		if isRequired {
-			return graphql.NewNonNull(obj)
-		}
-		return obj
-
-	} else if v, ok := s.isScalar(reflectedType); ok {
-		if isRequired {
-			return graphql.NewNonNull(v)
-		}
-		return v
-	} else if reflectedType.Kind() == reflect.Struct {
-		key := getKey(reflectedType)
-		if v, ok := s.builtOutputs[key]; ok {
-			return v
-		}
-
-		bo := s.buildObject(key, reflectedType)
-
-		return bo
-	}
-
-	return nil
-}
-
 func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	if qf, ok := s.objects[Query]; ok {
 		fields := s.buildMethods(qf.(*Object))
@@ -368,6 +229,7 @@ func (s *SchemaBuilder) buildQuery() *graphql.Object {
 	log.Debug("Query object is not found")
 	return nil
 }
+
 func (s *SchemaBuilder) buildMutation() *graphql.Object {
 	if qf, ok := s.objects[Mutation]; ok {
 		fields := s.buildMethods(qf.(*Object))
@@ -519,7 +381,11 @@ func (s *SchemaBuilder) getInputFieldTypeRecursive(t reflect.Type, required bool
 	case reflect.Ptr:
 		return s.getInputFieldTypeRecursive(t.Elem(), false)
 	case reflect.Slice:
-		return graphql.NewList(s.getInputFieldTypeRecursive(t.Elem(), true))
+		if v, ok := s.isScalar(t); ok {
+			return s.getInputFieldType(v, required)
+		} else {
+			return graphql.NewList(s.getInputFieldTypeRecursive(t.Elem(), true))
+		}
 	case reflect.Struct:
 		if v, ok := s.isScalar(t); ok {
 			return s.getInputFieldType(v, required)
@@ -544,7 +410,11 @@ func (s *SchemaBuilder) getOutputFieldTypeRecursive(t reflect.Type, required boo
 	case reflect.Ptr:
 		return s.getOutputFieldTypeRecursive(t.Elem(), false)
 	case reflect.Slice:
-		return graphql.NewList(s.getOutputFieldTypeRecursive(t.Elem(), true))
+		if v, ok := s.isScalar(t); ok {
+			return s.getOutputFieldType(v, required)
+		} else {
+			return graphql.NewList(s.getOutputFieldTypeRecursive(t.Elem(), true))
+		}
 	case reflect.Struct:
 		if v, ok := s.isScalar(t); ok {
 			return s.getOutputFieldType(v, required)
@@ -692,25 +562,23 @@ func (s *SchemaBuilder) buildSubscriptionMethods(so *SubscriptionObject) graphql
 	return fields
 }
 
-func (s *SchemaBuilder) getResolverOutput(fn interface{}) (reflect.Type, graphql.Output) {
-	rf := reflect.TypeOf(fn).Out(0)
-	return rf, s.getGqOutput(rf, true)
-}
-
 func (s *SchemaBuilder) findResolverOutputObject(fn interface{}) reflect.Type {
 	rf := reflect.TypeOf(fn).Out(0)
-	return getActualTypeRecursive(rf)
+	return s.getActualTypeRecursive(rf)
 }
 
 func (s *SchemaBuilder) findSubscriptionOutputObject(out interface{}) reflect.Type {
 	rf := reflect.TypeOf(out)
-	return getActualTypeRecursive(rf)
+	return s.getActualTypeRecursive(rf)
 }
 
 func (s *SchemaBuilder) findDependentObjects(t reflect.Type, objType string) {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		ao := getActualTypeRecursive(f.Type)
+		log.Println(f.Name)
+		ao := s.getActualTypeRecursive(f.Type)
+
+		log.Println(f.Type)
 		_, scalar := s.isScalar(ao)
 		if !scalar {
 			key := getKey(ao)
@@ -745,13 +613,31 @@ func (s *SchemaBuilder) findDependentObjects(t reflect.Type, objType string) {
 	}
 }
 
+func (s *SchemaBuilder) getActualTypeRecursive(t reflect.Type) reflect.Type {
+	switch t.Kind() {
+	case reflect.Ptr:
+		return s.getActualTypeRecursive(t.Elem())
+	case reflect.Slice:
+		_, scalar := s.isScalar(t)
+		if scalar {
+			return t
+		}
+		return s.getActualTypeRecursive(t.Elem())
+
+	case reflect.Struct:
+		return t
+	}
+	return t
+
+}
+
 func (s *SchemaBuilder) findResolverArgsObject(fn interface{}) reflect.Type {
 	args, _, exist := getArgs(reflect.TypeOf(fn))
 	if !exist {
 		return nil
 	}
 
-	return getActualTypeRecursive(args)
+	return s.getActualTypeRecursive(args)
 }
 
 func (s *SchemaBuilder) getResolverArgs(fn interface{}) reflect.Type {

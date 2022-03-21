@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/mirogindev/gomer/gqbuilder"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/datatypes"
 	"time"
 )
 
@@ -12,6 +13,7 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 	builder := gqbuilder.GetBuilder()
 	builder.RegisterScalar("int64", gqbuilder.Int64Scalar)
 	builder.RegisterScalar("Decimal", gqbuilder.DecimalScalar)
+	builder.RegisterScalar("JSON", gqbuilder.JsonField)
 
 	ticket := builder.Object("Ticket", Ticket{})
 
@@ -33,7 +35,7 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 		tags = append(tags, &Tag{Title: "Tag2", ID: "2"})
 		tags = append(tags, &Tag{Title: "Tag3", ID: "3"})
 
-		return &Ticket{Title: "Ticket1", ID: "1", Tags: tags}, nil
+		return &Ticket{Title: "Ticket1", ID: "1", Tags: tags, Params: *args.Input.Params}, nil
 	})
 
 	mutationObj.FieldResolver("ticket_insert_many", func(ctx context.Context, args struct {
@@ -76,7 +78,14 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 		tags = append(tags, &Tag{Title: "Tag2", ID: "2"})
 		tags = append(tags, &Tag{Title: "Tag3", ID: "3"})
 
-		tickets = append(tickets, &Ticket{Title: "Ticket1", ID: "1", Tags: tags})
+		json := datatypes.JSON{}
+		err := json.UnmarshalJSON([]byte("{\"name\":\"vasya\"}"))
+
+		if err != nil {
+			log.Panicln(err)
+		}
+
+		tickets = append(tickets, &Ticket{Title: "Ticket1", ID: "1", Tags: tags, Params: json})
 		tickets = append(tickets, &Ticket{Title: "Ticket2", ID: "2", Tags: tags})
 		tickets = append(tickets, &Ticket{Title: "Ticket3", ID: "3", Tags: tags})
 		return tickets, nil
