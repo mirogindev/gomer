@@ -177,7 +177,7 @@ func (sh *SubscriptionHandler) subscribe(ctx context.Context, subscriptionCancel
 					if err == websocket.ErrCloseSent {
 						sh.unsubscribe(subscriptionCancelFn, subscriber)
 					}
-					log.Printf("failed to send message: %v", err)
+					log.Errorf("failed to send message: %v", err)
 				}
 			}
 		}

@@ -575,10 +575,8 @@ func (s *SchemaBuilder) findSubscriptionOutputObject(out interface{}) reflect.Ty
 func (s *SchemaBuilder) findDependentObjects(t reflect.Type, objType string) {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		log.Println(f.Name)
 		ao := s.getActualTypeRecursive(f.Type)
 
-		log.Println(f.Type)
 		_, scalar := s.isScalar(ao)
 		if !scalar {
 			key := getKey(ao)
