@@ -1,10 +1,10 @@
 package gqbuilder
 
 import (
-	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/shopspring/decimal"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -65,7 +65,7 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 		case int64:
 			return value
 		default:
-			panic(fmt.Sprintf("Value is not int64, actial type is %v", value))
+			log.Errorf("Value is not int64, actial type is %v", value)
 		}
 
 		return nil
@@ -74,24 +74,18 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 	// value is plain type
 	ParseValue: func(value interface{}) interface{} {
 		switch value := value.(type) {
-		case *int64:
-			return *value
 		case int64:
 			return value
-		case *string:
-			i, err := strconv.ParseInt(*value, 10, 64)
-			if err != nil {
-				panic(fmt.Sprintf("Cannot convert %v to int64, %s", *value, err))
-			}
-			return i
+		case float64:
+			return int64(value)
 		case string:
 			i, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
-				panic(fmt.Sprintf("Cannot convert %v to int64, %s", value, err))
+				log.Errorf("Cannot convert %v to int64, %s", value, err)
 			}
 			return i
 		default:
-			panic(fmt.Sprintf("Value is not int64, actial type is %v", value))
+			log.Errorf("Value is not int64, actial type is %v", value)
 		}
 
 		return nil
@@ -103,7 +97,7 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 		case *ast.IntValue:
 			i, err := strconv.ParseInt(valueAST.Value, 10, 64)
 			if err != nil {
-				panic(err)
+				log.Error(err)
 			}
 
 			return i
@@ -122,7 +116,7 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 		case decimal.Decimal:
 			return value
 		default:
-			panic(fmt.Sprintf("Value is not decimal, actial type is %v", value))
+			log.Errorf("Value is not decimal, actial type is %v", value)
 		}
 
 		return nil
@@ -135,20 +129,14 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 			return *value
 		case decimal.Decimal:
 			return value
-		case *string:
-			i, err := decimal.NewFromString(*value)
-			if err != nil {
-				panic(fmt.Sprintf("Cannot convert %v to decimal, %s", *value, err))
-			}
-			return i
 		case string:
 			i, err := decimal.NewFromString(value)
 			if err != nil {
-				panic(fmt.Sprintf("Cannot convert %v to decimal, %s", value, err))
+				log.Errorf("Cannot convert %v to decimal, %s", value, err)
 			}
 			return i
 		default:
-			panic(fmt.Sprintf("Value is not decimal, actial type is %v", value))
+			log.Errorf("Value is not decimal, actial type is %v", value)
 		}
 
 		return nil
@@ -160,7 +148,7 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 		case *ast.StringValue:
 			i, err := decimal.NewFromString(valueAST.Value)
 			if err != nil {
-				panic(err)
+				log.Error(err)
 			}
 
 			return i

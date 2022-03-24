@@ -68,8 +68,8 @@ func CreateTestSchema() *gqbuilder.SchemaBuilder {
 	queryObj.FieldResolver("ticket", func(ctx context.Context, args struct {
 		Filter *TicketFilterInput
 		Order  *TicketOrderInput
-		Limit  *int
-		Offset *int
+		Limit  *int64
+		Offset *int64
 	}) ([]*Ticket, error) {
 		var tickets []*Ticket
 		var tags []*Tag
