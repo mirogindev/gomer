@@ -4,6 +4,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/shopspring/decimal"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -64,7 +65,7 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 		case int64:
 			return value
 		default:
-			panic("Value is not int64")
+			log.Errorf("Value is not int64, actial type is %v", value)
 		}
 
 		return nil
@@ -78,7 +79,7 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 		case int64:
 			return value
 		default:
-			panic("Value is not int64")
+			log.Errorf("Value is not int64, actial type is %v", value)
 		}
 
 		return nil
@@ -109,7 +110,7 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 		case decimal.Decimal:
 			return value
 		default:
-			panic("Value is not int64")
+			log.Errorf("Value is not decimal, actial type is %v", value)
 		}
 
 		return nil
@@ -123,7 +124,7 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 		case decimal.Decimal:
 			return value
 		default:
-			panic("Value is not int64")
+			log.Errorf("Value is not decimal, actial type is %v", value)
 		}
 
 		return nil
