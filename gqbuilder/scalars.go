@@ -1,10 +1,10 @@
 package gqbuilder
 
 import (
+	"fmt"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/shopspring/decimal"
-	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -56,7 +56,7 @@ import (
 //})
 
 var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
-	Name:        "Int64",
+	Name:        "int64",
 	Description: ``,
 	Serialize: func(value interface{}) interface{} {
 		switch value := value.(type) {
@@ -65,7 +65,7 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 		case int64:
 			return value
 		default:
-			log.Errorf("Value is not int64, actial type is %v", value)
+			panic(fmt.Sprintf("Value is not int64, actial type is %v", value))
 		}
 
 		return nil
@@ -78,8 +78,20 @@ var Int64Scalar = graphql.NewScalar(graphql.ScalarConfig{
 			return *value
 		case int64:
 			return value
+		case *string:
+			i, err := strconv.ParseInt(*value, 10, 64)
+			if err != nil {
+				panic(fmt.Sprintf("Cannot convert %v to int64, %s", *value, err))
+			}
+			return i
+		case string:
+			i, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				panic(fmt.Sprintf("Cannot convert %v to int64, %s", value, err))
+			}
+			return i
 		default:
-			log.Errorf("Value is not int64, actial type is %v", value)
+			panic(fmt.Sprintf("Value is not int64, actial type is %v", value))
 		}
 
 		return nil
@@ -110,7 +122,7 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 		case decimal.Decimal:
 			return value
 		default:
-			log.Errorf("Value is not decimal, actial type is %v", value)
+			panic(fmt.Sprintf("Value is not decimal, actial type is %v", value))
 		}
 
 		return nil
@@ -123,8 +135,20 @@ var DecimalScalar = graphql.NewScalar(graphql.ScalarConfig{
 			return *value
 		case decimal.Decimal:
 			return value
+		case *string:
+			i, err := decimal.NewFromString(*value)
+			if err != nil {
+				panic(fmt.Sprintf("Cannot convert %v to decimal, %s", *value, err))
+			}
+			return i
+		case string:
+			i, err := decimal.NewFromString(value)
+			if err != nil {
+				panic(fmt.Sprintf("Cannot convert %v to decimal, %s", value, err))
+			}
+			return i
 		default:
-			log.Errorf("Value is not decimal, actial type is %v", value)
+			panic(fmt.Sprintf("Value is not decimal, actial type is %v", value))
 		}
 
 		return nil
