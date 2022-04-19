@@ -9,7 +9,20 @@ import (
 	"hash/fnv"
 	"math"
 	"reflect"
+	"sort"
+	"strings"
 )
+
+func hashFromArr(fMap map[string]string) string {
+	arr := make([]string, 0)
+	for k, _ := range fMap {
+		arr = append(arr, k)
+	}
+
+	sort.Strings(arr)
+	return fmt.Sprintf("%v", hash(strings.Join(arr, ",")))
+
+}
 
 func hash(s string) uint32 {
 	h := fnv.New32a()
@@ -23,10 +36,15 @@ func getKey(t reflect.Type) string {
 
 	if nk == "" {
 		return t.String()
-		//	return fmt.Sprintf("Args%v", hash(t.String()))
 	}
 
 	return fmt.Sprintf("%s", nk)
+}
+
+func getKeyWithHash(t reflect.Type, ig map[string]string) string {
+	key := getKey(t)
+	hashStr := hashFromArr(ig)
+	return fmt.Sprintf("%s%s", key, hashStr)
 }
 
 func getFieldName(name string) string {
@@ -321,21 +339,33 @@ func getFieldObject(f graphql.Type) *graphql.Object {
 	return nil
 }
 
-//func getActualTypeRecursive(t reflect.Type) reflect.Type {
-//	switch t.Kind() {
-//	case reflect.Ptr:
-//		log.Traceln("Ptr %s", t.String())
-//		return getActualTypeRecursive(t.Elem())
-//	case reflect.Slice:
-//		log.Tracef("Slice %s", t.String())
-//		return getActualTypeRecursive(t.Elem())
-//
-//	case reflect.Struct:
-//		return t
-//	}
-//	return t
-//
-//}
+func findGomerTags(t reflect.StructField) GomerTags {
+	gomerTags := GomerTags{}
+
+	if tag, ok := t.Tag.Lookup("gomer"); ok {
+		tr := strings.TrimSpace(tag)
+		spl := strings.Split(tr, ";")
+		for _, v := range spl {
+			pspl := strings.Split(strings.TrimSpace(v), ":")
+			if len(pspl) < 2 {
+				log.Errorf("Invalid param %s", v)
+			} else {
+				gomerTags[pspl[0]] = pspl[1]
+			}
+		}
+	}
+	return gomerTags
+}
+
+func stringToMap(s string) map[string]string {
+	arr := strings.Split(s, ",")
+	m := make(map[string]string)
+
+	for _, i := range arr {
+		m[i] = i
+	}
+	return m
+}
 
 func MakeObjectNullable(output graphql.Output) graphql.Output {
 	switch v := output.(type) {

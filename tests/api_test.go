@@ -17,6 +17,7 @@ func BuildTestSchema() (graphql.Schema, error) {
 	return schema, err
 }
 
+//
 //func TestRunWeb(t *testing.T) {
 //	schema, err := BuildTestSchema()
 //	if err != nil {

@@ -38,13 +38,18 @@ var defaultScalarsMap = map[string]*graphql.Scalar{
 	"bool":     graphql.Boolean,
 }
 
+type BuildObject struct {
+	RType         reflect.Type
+	IgnoredFields map[string]string
+}
+
 type SchemaBuilder struct {
 	subscriptions  *SubscriptionObject
 	scalars        map[string]*graphql.Scalar
 	objects        map[string]GomerObject
 	customObjects  map[string]GomerObject
-	outputsToBuild map[string]reflect.Type
-	inputsToBuild  map[string]reflect.Type
+	outputsToBuild map[string]*BuildObject
+	inputsToBuild  map[string]*BuildObject
 	argsMap        map[string]map[string]interface{}
 	builtOutputs   map[string]graphql.Output
 	builtInputs    map[string]graphql.Input
@@ -54,26 +59,26 @@ func GetBuilder() *SchemaBuilder {
 	return &SchemaBuilder{}
 }
 
-func (s *SchemaBuilder) FindObjectsToBuild() (map[string]reflect.Type, map[string]reflect.Type) {
+func (s *SchemaBuilder) FindObjectsToBuild() (map[string]*BuildObject, map[string]*BuildObject) {
 	if s.outputsToBuild == nil {
-		s.outputsToBuild = make(map[string]reflect.Type)
+		s.outputsToBuild = make(map[string]*BuildObject)
 	}
 	if s.inputsToBuild == nil {
-		s.inputsToBuild = make(map[string]reflect.Type)
+		s.inputsToBuild = make(map[string]*BuildObject)
 	}
 
 	for _, gm := range s.customObjects {
 		v := gm.(*Object)
 		t := reflect.TypeOf(v.Type)
 		key := getKey(t)
-		s.outputsToBuild[key] = t
+		s.outputsToBuild[key] = &BuildObject{RType: t}
 		s.findMethodObjectsRecursive(v)
 	}
 
 	for _, gm := range s.objects {
 		t := reflect.TypeOf(gm.GetType())
 		key := getKey(t)
-		s.outputsToBuild[key] = t
+		s.outputsToBuild[key] = &BuildObject{RType: t}
 		s.findMethodObjectsRecursive(gm)
 
 	}
@@ -91,28 +96,29 @@ func (s *SchemaBuilder) CreateObjects() (map[string]graphql.Input, map[string]gr
 		s.builtOutputs = make(map[string]graphql.Output)
 	}
 
-	for n, v := range s.inputsToBuild {
+	for n, _ := range s.inputsToBuild {
+		//v := o.RType
 		fields := graphql.InputObjectConfigFieldMap{}
 
 		obj := graphql.NewInputObject(graphql.InputObjectConfig{
 			Name:   n,
 			Fields: fields,
 		})
-		key := getKey(v)
-		s.builtInputs[key] = obj
+		s.builtInputs[n] = obj
 	}
 
-	for n, v := range s.outputsToBuild {
+	for n, _ := range s.outputsToBuild {
+		//	v := o.RType
 		if n == Query || n == Mutation {
 			continue
 		}
 		fields := graphql.Fields{}
 
 		obj := graphql.NewObject(graphql.ObjectConfig{
-			Name:   v.Name(),
+			Name:   n,
 			Fields: fields,
 		})
-		s.builtOutputs[getKey(v)] = obj
+		s.builtOutputs[n] = obj
 	}
 	return s.builtInputs, s.builtOutputs
 }
@@ -290,9 +296,9 @@ func (s *SchemaBuilder) processObject(t reflect.Type, objType string) {
 	}
 	key := getKey(t)
 	if objType == INPUT_TYPE {
-		s.inputsToBuild[key] = t
+		s.inputsToBuild[key] = &BuildObject{RType: t}
 	} else if objType == OUTPUT_TYPE {
-		s.outputsToBuild[key] = t
+		s.outputsToBuild[key] = &BuildObject{RType: t}
 	} else {
 		panic(fmt.Sprintf("Invalid object type %s", objType))
 	}
@@ -300,16 +306,22 @@ func (s *SchemaBuilder) processObject(t reflect.Type, objType string) {
 }
 
 func (s *SchemaBuilder) CreateObjectsFields() (map[string]graphql.Input, map[string]graphql.Output) {
-	for n, t := range s.inputsToBuild {
+	for n, o := range s.inputsToBuild {
+		t := o.RType
+		ignoredFields := o.IgnoredFields
 		bo := s.builtInputs[n].(*graphql.InputObject)
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
+			if ignoredFields != nil && ignoredFields[f.Name] != "" {
+				continue
+			}
 			fName := getFieldName(f.Name)
-			of := s.createInputField(f.Name, f.Type, true)
+			of := s.createInputField(f.Name, f, true)
 			bo.AddFieldConfig(fName, of)
 		}
 	}
-	for n, t := range s.outputsToBuild {
+	for n, o := range s.outputsToBuild {
+		t := o.RType
 		bo := s.builtOutputs[n].(*graphql.Object)
 		co := s.customObjects[n]
 		for i := 0; i < t.NumField(); i++ {
@@ -332,8 +344,8 @@ func (s *SchemaBuilder) CreateObjectsFields() (map[string]graphql.Input, map[str
 	return s.builtInputs, s.builtOutputs
 }
 
-func (s *SchemaBuilder) createInputField(fieldName string, t reflect.Type, required bool) *graphql.InputObjectFieldConfig {
-	fType := s.getInputFieldTypeRecursive(t, true)
+func (s *SchemaBuilder) createInputField(fieldName string, sf reflect.StructField, required bool) *graphql.InputObjectFieldConfig {
+	fType := s.getInputFieldTypeRecursive(sf, sf.Type, true)
 	if fType == nil {
 		log.Errorf("Cannot create input field %s", fieldName)
 		return nil
@@ -375,22 +387,29 @@ func (s *SchemaBuilder) getInputFieldType(v graphql.Input, required bool) graphq
 
 }
 
-func (s *SchemaBuilder) getInputFieldTypeRecursive(t reflect.Type, required bool) graphql.Input {
+func (s *SchemaBuilder) getInputFieldTypeRecursive(sf reflect.StructField, t reflect.Type, required bool) graphql.Input {
 	switch t.Kind() {
 
 	case reflect.Ptr:
-		return s.getInputFieldTypeRecursive(t.Elem(), false)
+		return s.getInputFieldTypeRecursive(sf, t.Elem(), false)
 	case reflect.Slice:
 		if v, ok := s.isScalar(t); ok {
 			return s.getInputFieldType(v, required)
 		} else {
-			return graphql.NewList(s.getInputFieldTypeRecursive(t.Elem(), true))
+			return graphql.NewList(s.getInputFieldTypeRecursive(sf, t.Elem(), true))
 		}
 	case reflect.Struct:
 		if v, ok := s.isScalar(t); ok {
 			return s.getInputFieldType(v, required)
 		} else {
-			key := getKey(t)
+			var key string
+			tags := findGomerTags(sf)
+			if fv, ok := tags.ParamExist("ignoreFields"); ok {
+				ignoredFields := stringToMap(fv)
+				key = getKeyWithHash(t, ignoredFields)
+			} else {
+				key = getKey(t)
+			}
 			v := s.builtInputs[key]
 			return s.getInputFieldType(v, required)
 		}
@@ -575,38 +594,36 @@ func (s *SchemaBuilder) findSubscriptionOutputObject(out interface{}) reflect.Ty
 func (s *SchemaBuilder) findDependentObjects(t reflect.Type, objType string) {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		tags := findGomerTags(f)
+
 		ao := s.getActualTypeRecursive(f.Type)
 
 		_, scalar := s.isScalar(ao)
 		if !scalar {
-			key := getKey(ao)
+			var key = ""
+			var ignoredFields map[string]string
+			if fv, ok := tags.ParamExist("ignoreFields"); ok {
+				ignoredFields = stringToMap(fv)
+				key = getKeyWithHash(ao, ignoredFields)
+			} else {
+				key = getKey(ao)
+			}
+
 			if objType == INPUT_TYPE {
 				if _, ok := s.inputsToBuild[key]; ok {
 					continue
 				}
-				s.inputsToBuild[key] = ao
+				s.inputsToBuild[key] = &BuildObject{RType: ao, IgnoredFields: ignoredFields}
 			} else if objType == OUTPUT_TYPE {
 				if _, ok := s.outputsToBuild[key]; ok {
 					continue
 				}
-				s.outputsToBuild[key] = ao
+				s.outputsToBuild[key] = &BuildObject{RType: ao, IgnoredFields: ignoredFields}
 			} else {
 				panic(fmt.Sprintf("Invalid object type %s", objType))
 			}
 
 			s.findDependentObjects(ao, objType)
-
-			//if _, ok := s.outputsToBuild[key]; !ok {
-			//	if objType == INPUT_TYPE {
-			//		s.inputsToBuild[key] = ao
-			//	} else if objType == OUTPUT_TYPE {
-			//		s.outputsToBuild[key] = ao
-			//	} else {
-			//		panic(fmt.Sprintf("Invalid object type %s", objType))
-			//	}
-			//
-			//	s.findDependentObjects(ao, objType)
-			//}
 		}
 	}
 }

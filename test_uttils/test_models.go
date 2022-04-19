@@ -37,10 +37,10 @@ type IDFilter struct {
 }
 
 type TicketFilterInput struct {
-	ID     *IDFilter     `json:"id"`
-	Title  *StringFilter `json:"title"`
-	Number *NumberFilter `json:"number"`
-	And    *[]*TicketFilterInput
+	ID     *IDFilter             `json:"id"`
+	Title  *StringFilter         `json:"title"`
+	Number *NumberFilter         `json:"number"`
+	And    *[]*TicketFilterInput `gomer:"ignoreFields:And,Or;prefix:Inner"`
 }
 
 type TicketOrderInput struct {
